@@ -1,10 +1,9 @@
 use std::ops;
 
+#[derive(Copy, Clone)]
 pub struct Vec3 {
     coords : [f64; 3]
 }
-
-pub type Colour = Vec3;
 pub type Point3 = Vec3;
 
 
@@ -35,64 +34,178 @@ impl Vec3 {
     pub fn z(&self) -> f64 {
         self.coords[2]
     }
+
+    pub fn unit(&self) -> Vec3 {
+        unit_vector(self)
+    }
+
+    pub fn unitize(&mut self) {
+        *self = unit_vector(self)
+    }
 }
 
-impl ops::Add<Vec3> for Vec3 {
+pub fn cross(v1 : &Vec3, v2 : &Vec3) -> Vec3 {
+    Vec3::new(
+        v1.y() * v2.z() - v1.z() * v2.y(),
+        v1.z() * v2.x() - v1.x() * v2.z(),
+        v1.x() * v2.y() - v1.y() - v2.x())
+}
+
+pub fn dot(v1 : &Vec3, v2 : &Vec3) -> f64 {
+    v1.x() * v2.x() + v1.y() * v2.y() + v1.z() * v2.z()
+}
+
+pub fn unit_vector(v : &Vec3) -> Vec3 {
+    *v / v.length()
+}
+
+impl ops::Add<&Vec3> for &Vec3 {
     type Output = Vec3;
-    fn add(self, rhs: Vec3) -> Self::Output {
+    fn add(self, rhs: &Vec3) -> Self::Output {
         Vec3::new(self.x() + rhs.x(),
                   self.y() + rhs.y(),
                   self.z() + rhs.z())
     }
 }
 
-impl ops::Sub<Vec3> for Vec3 {
+impl ops::Add<Vec3> for &Vec3 {
     type Output = Vec3;
-    fn sub(self, rhs: Vec3) -> Self::Output {
+    fn add(self, rhs: Vec3) -> Self::Output {
+        self + &rhs
+    }
+}
+
+impl ops::Add<&Vec3> for Vec3 {
+    type Output = Vec3;
+    fn add(self, rhs: &Vec3) -> Self::Output {
+        &self + rhs
+    }
+}
+
+impl ops::Add<Vec3> for Vec3 {
+    type Output = Vec3;
+    fn add(self, rhs: Vec3) -> Self::Output {
+        &self + &rhs
+    }
+}
+
+impl ops::Sub<&Vec3> for &Vec3 {
+    type Output = Vec3;
+    fn sub(self, rhs: &Vec3) -> Self::Output {
         Vec3::new(self.x() - rhs.x(),
                   self.y() - rhs.y(),
                   self.z() - rhs.z())
     }
 }
 
-impl ops::Mul<Vec3> for f64 {
+impl ops::Sub<Vec3> for &Vec3 {
     type Output = Vec3;
-    fn mul(self, rhs: Vec3) -> Self::Output {
+    fn sub(self, rhs: Vec3) -> Self::Output {
+        self - &rhs
+    }
+}
+
+impl ops::Sub<&Vec3> for Vec3 {
+    type Output = Vec3;
+    fn sub(self, rhs: &Vec3) -> Self::Output {
+        &self - rhs
+    }
+}
+
+impl ops::Sub<Vec3> for Vec3 {
+    type Output = Vec3;
+    fn sub(self, rhs: Vec3) -> Self::Output {
+        &self - &rhs
+    }
+}
+
+impl ops::Mul<f64> for &Vec3 {
+    type Output = Vec3;
+    fn mul(self, rhs: f64) -> Self::Output {
+        Vec3::new(self.x() / rhs,
+                  self.y() / rhs,
+                  self.z() / rhs)
+    }
+}
+
+impl ops::Mul<f64> for Vec3 {
+    type Output = Vec3;
+    fn mul(self, rhs: f64) -> Self::Output {
+        &self * rhs
+    }
+}
+
+impl ops::Mul<&Vec3> for f64 {
+    type Output = Vec3;
+    fn mul(self, rhs: &Vec3) -> Self::Output {
         Vec3::new(self * rhs.x(),
                   self * rhs.y(),
                   self * rhs.z())
     }
 }
 
-impl ops::Div<Vec3> for f64 {
+impl ops::Mul<Vec3> for f64 {
     type Output = Vec3;
-    fn div(self, rhs: Vec3) -> Self::Output {
-        Vec3::new(self / rhs.x(),
-                  self / rhs.y(),
-                  self / rhs.z())
+    fn mul(self, rhs: Vec3) -> Self::Output {
+        self * &rhs
     }
 }
 
-impl ops::Neg for Vec3 {
+impl ops::Div<f64> for &Vec3 {
+    type Output = Vec3;
+    fn div(self, rhs: f64) -> Self::Output {
+        Vec3::new(self.x() / rhs,
+                  self.y() / rhs,
+                  self.z() / rhs)
+    }
+}
+
+impl ops::Div<f64> for Vec3 {
+    type Output = Vec3;
+    fn div(self, rhs: f64) -> Self::Output {
+        &self / rhs
+    }
+}
+
+impl ops::Neg for &Vec3 {
     type Output = Vec3;
     fn neg(self) -> Self::Output {
         Vec3::new(-self.x(), -self.y(), -self.z())
     }
 }
 
-impl ops::AddAssign<Vec3> for Vec3 {
-    fn add_assign(&mut self, rhs: Vec3) {
+impl ops::Neg for Vec3 {
+    type Output = Vec3;
+    fn neg(self) -> Self::Output {
+        -(&self)
+    }
+}
+
+impl ops::AddAssign<&Vec3> for Vec3 {
+    fn add_assign(&mut self, rhs: &Vec3) {
         self.coords[0] += rhs.coords[0];
         self.coords[1] += rhs.coords[1];
         self.coords[2] += rhs.coords[2];
     }
 }
 
-impl ops::SubAssign<Vec3> for Vec3 {
-    fn sub_assign(&mut self, rhs: Vec3) {
+impl ops::AddAssign<Vec3> for Vec3 {
+    fn add_assign(&mut self, rhs: Vec3) {
+        self.add_assign(&rhs)
+    }
+}
+
+impl ops::SubAssign<&Vec3> for Vec3 {
+    fn sub_assign(&mut self, rhs: &Vec3) {
         self.coords[0] -= rhs.coords[0];
         self.coords[1] -= rhs.coords[1];
         self.coords[2] -= rhs.coords[2];
+    }
+}
+
+impl ops::SubAssign<Vec3> for Vec3 {
+    fn sub_assign(&mut self, rhs: Vec3) {
+        self.sub_assign(&rhs)
     }
 }
 
