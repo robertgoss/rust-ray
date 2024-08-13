@@ -1,7 +1,12 @@
+// Playing with basic ray tracer in rust based on
+// https://raytracing.github.io/books/RayTracingInOneWeekend.html
+
+
 mod vec3;
 
 use std::fs::File;
 use std::io::{Error, Write};
+use crate::vec3::Colour;
 
 fn write_ppm_header(
     file : &mut File,
@@ -18,13 +23,11 @@ fn write_ppm_header(
 
 fn write_ppm_colour(
     file : &mut File,
-    red : f64,
-    green : f64,
-    blue : f64,
+    colour : &Colour
 ) -> Result<(), Error> {
-    let b_red = (red * 255.999) as u8;
-    let b_green = (green * 255.999) as u8;
-    let b_blue = (blue * 255.999) as u8;
+    let b_red = (colour.x() * 255.999) as u8;
+    let b_green = (colour.y() * 255.999) as u8;
+    let b_blue = (colour.z() * 255.999) as u8;
     file.write(b_red.to_string().as_bytes())?;
     file.write(" ".as_bytes())?;
     file.write(b_green.to_string().as_bytes())?;
@@ -42,10 +45,12 @@ fn main() {
     for j in 0..image_height {
         print!("\rScanlines remaining: {}", image_height - j);
         for i in 0..image_width {
-            let red = (i as f64) / ((image_width - 1) as f64);
-            let green = (j as f64) / ((image_height - 1) as f64);
-            let blue = 0.0;
-            write_ppm_colour(&mut image_file, red, green, blue).expect("Could not write to file")
+            let colour = Colour::new(
+                (i as f64) / ((image_width - 1) as f64),
+                (j as f64) / ((image_height - 1) as f64),
+                0.0
+            );
+            write_ppm_colour(&mut image_file, &colour).expect("Could not write to file")
         }
     }
     print!("\rDONE                      ");
