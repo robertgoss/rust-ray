@@ -10,6 +10,10 @@ impl Ray {
         Ray {_origin : *origin, _direction : *direction}
     }
 
+    pub fn between(origin: &Point3, point_on : &Point3) -> Ray {
+        Ray {_origin : *origin, _direction : point_on - origin}
+    }
+
     pub fn at(&self, t : f64) -> Point3 {
         self._origin + (t * self._direction)
     }
