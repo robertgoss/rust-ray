@@ -11,7 +11,7 @@ use std::fs::File;
 use std::io::{Error, Write};
 use crate::colour::{Colour, write_ppm_colour};
 use crate::ray::Ray;
-use crate::vec3::{dot, Point3, Vec3};
+use crate::vec3::{dot, unit_vector, Point3, Vec3};
 
 fn write_ppm_header(
     file : &mut File,
@@ -26,20 +26,28 @@ fn write_ppm_header(
     Ok(())
 }
 
-fn hit_sphere(center : &Point3, radius : f64, ray : &Ray) -> bool {
+fn hit_sphere(center : &Point3, radius : f64, ray : &Ray) -> f64 {
     let oc = center - ray.origin();
     // Quad formula
-    let a = dot(ray.direction(), ray.direction());
-    let b = -2.0 * dot(ray.direction(), &oc);
-    let c = dot(&oc, &oc) - radius * radius;
-    let discriminant = b*b - 4.0*a*c;
-    discriminant >= 0.0
+    let a = ray.direction().length_squared();
+    let h = dot(ray.direction(), &oc);
+    let c = oc.length_squared() - radius * radius;
+    let discriminant = h*h - a*c;
+
+    if discriminant < 0.0 {
+        -1.0
+    } else {
+        (h - discriminant.sqrt()) / a
+    }
 }
 
 // Render ray
 fn ray_colour(ray : &Ray) -> Colour {
-    if (hit_sphere(&Point3::new(0.0,0.0, -1.0), 0.5, ray)) {
-        return Colour::new(1.0, 0.0, 0.0);
+    let center = Point3::new(0.0,0.0, -1.0);
+    let t = hit_sphere(&center, 0.5, ray);
+    if (t > 0.0) {
+        let N = (ray.at(t) - center).unit();
+        return 0.5 * (N + Colour::new(1.0, 1.0, 1.0));
     }
     let unit_direction = ray.direction().unit();
     let a = 0.5*(unit_direction.y() + 1.0);
