@@ -13,7 +13,7 @@ use std::io::{Error, Write};
 use crate::colour::{Colour, write_ppm_colour};
 use crate::hittables::{Hittable, HittableList, Sphere};
 use crate::ray::Ray;
-use crate::vec3::{dot, Point3, Vec3};
+use crate::vec3::{Point3, Vec3};
 
 fn write_ppm_header(
     file : &mut File,
@@ -37,7 +37,7 @@ fn ray_colour<Hit>(ray : &Ray, world : &Hit) -> Colour
     }
     let unit_direction = ray.direction().unit();
     let a = 0.5*(unit_direction.y() + 1.0);
-    return (1.0-a)*Colour::new(1.0, 1.0, 1.0) + a*Colour::new(0.5, 0.7, 1.0);
+    (1.0-a)*Colour::new(1.0, 1.0, 1.0) + a*Colour::new(0.5, 0.7, 1.0)
 }
 
 fn main() {
@@ -54,7 +54,7 @@ fn main() {
     let viewport_height = 2.0;
     let viewport_width = viewport_height * (image_width as f64)/ (image_height as f64);
     let camera_center = Point3::zero();
-    // Convert img corrds to view coords
+    // Convert img coords to view coords
     let viewport_u = Vec3::new(viewport_width, 0.0, 0.0);
     let viewport_v = Vec3::new(0.0, -viewport_height, 0.0);
     // Pixel size in viewport
