@@ -5,13 +5,15 @@
 mod vec3;
 mod colour;
 mod ray;
+mod hittables;
 
 use std::cmp::max;
 use std::fs::File;
 use std::io::{Error, Write};
 use crate::colour::{Colour, write_ppm_colour};
+use crate::hittables::{Hittable, HittableList, Sphere};
 use crate::ray::Ray;
-use crate::vec3::{dot, unit_vector, Point3, Vec3};
+use crate::vec3::{dot, Point3, Vec3};
 
 fn write_ppm_header(
     file : &mut File,
@@ -26,28 +28,12 @@ fn write_ppm_header(
     Ok(())
 }
 
-fn hit_sphere(center : &Point3, radius : f64, ray : &Ray) -> f64 {
-    let oc = center - ray.origin();
-    // Quad formula
-    let a = ray.direction().length_squared();
-    let h = dot(ray.direction(), &oc);
-    let c = oc.length_squared() - radius * radius;
-    let discriminant = h*h - a*c;
-
-    if discriminant < 0.0 {
-        -1.0
-    } else {
-        (h - discriminant.sqrt()) / a
-    }
-}
-
 // Render ray
-fn ray_colour(ray : &Ray) -> Colour {
-    let center = Point3::new(0.0,0.0, -1.0);
-    let t = hit_sphere(&center, 0.5, ray);
-    if (t > 0.0) {
-        let N = (ray.at(t) - center).unit();
-        return 0.5 * (N + Colour::new(1.0, 1.0, 1.0));
+fn ray_colour<Hit>(ray : &Ray, world : &Hit) -> Colour
+    where Hit : Hittable
+{
+    if let Some(hit) = world.hit(ray, 0.0, f64::MAX) {
+        return 0.5 * (hit.normal + Colour::new(1.0, 1.0, 1.0));
     }
     let unit_direction = ray.direction().unit();
     let a = 0.5*(unit_direction.y() + 1.0);
@@ -79,6 +65,11 @@ fn main() {
         - Vec3::new(0.0, 0.0, focal_length) - viewport_u/2.0 - viewport_v/2.0;
     let pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 
+    // Make world
+    let mut world = HittableList::new();
+    world.add(Box::new(Sphere::new(&Point3::new(0.0, 0.0, -1.0), 0.5)));
+    world.add(Box::new(Sphere::new(&Point3::new(0.0, -100.5, -1.0), 100.0)));
+
     // Output image
     let mut image_file = File::create("image.ppm").expect("Could not open file");
     write_ppm_header(&mut image_file, image_width, image_height).expect("Could not write header");
@@ -89,7 +80,7 @@ fn main() {
         for i in 0..image_width {
             let viewpoint_pt = pixel00_loc + (i as f64 * pixel_delta_u) + (j as f64 * pixel_delta_v);
             let ray = Ray::between(&camera_center, &viewpoint_pt);
-            let colour = ray_colour(&ray);
+            let colour = ray_colour(&ray, &world);
             write_ppm_colour(&mut image_file, &colour).expect("Could not write to file")
         }
     }
