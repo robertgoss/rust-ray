@@ -1,3 +1,4 @@
+use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::vec3::{dot, Point3, Vec3};
 
@@ -8,7 +9,7 @@ pub struct HitRecord {
     pub front_face : bool
 }
 pub trait Hittable {
-    fn hit(&self, ray : &Ray, ray_tmin : f64, ray_tmax : f64) -> Option<HitRecord>;
+    fn hit(&self, ray : &Ray, ray_t : &Interval) -> Option<HitRecord>;
 }
 
 impl HitRecord {
@@ -49,7 +50,7 @@ impl Sphere {
 }
 
 impl Hittable for Sphere {
-    fn hit(&self, ray: &Ray, ray_tmin: f64, ray_tmax: f64) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, ray_t : &Interval) -> Option<HitRecord> {
         let oc = self.center - ray.origin();
         // Quad formula
         let a = ray.direction().length_squared();
@@ -62,9 +63,9 @@ impl Hittable for Sphere {
         let sqrtd = discriminant.sqrt();
         // Find nearest root in range
         let mut root = (h-sqrtd) / a;
-        if root <= ray_tmin || ray_tmax <= root {
+        if !ray_t.surrounds(root) {
             root = (h+sqrtd) / a;
-            if root <= ray_tmin || ray_tmax <= root {
+            if !ray_t.surrounds(root) {
                 return None;
             }
         }
@@ -101,11 +102,12 @@ impl HittableList {
 }
 
 impl Hittable for HittableList {
-    fn hit(&self, ray: &Ray, ray_tmin: f64, ray_tmax: f64) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, ray_t : &Interval) -> Option<HitRecord> {
         let mut best_hit : Option<HitRecord> = None;
-        let mut current_best = ray_tmax;
+        let mut current_best = ray_t.max;
         for object in self.objects.iter() {
-            if let Some(hit) = object.hit(ray, ray_tmin, current_best) {
+            let current_ray_t = Interval { min: ray_t.min, max : current_best };
+            if let Some(hit) = object.hit(ray, &current_ray_t) {
                 current_best = hit.t;
                 best_hit = Some(hit);
             }

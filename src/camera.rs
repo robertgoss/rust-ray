@@ -1,0 +1,123 @@
+use std::cmp::max;
+use std::fs::File;
+use std::io::{Error, Write};
+use rand::{thread_rng, Rng};
+use crate::colour::{write_ppm_colour, Colour};
+use crate::hittables::Hittable;
+use crate::interval::Interval;
+use crate::ray::Ray;
+use crate::vec3::{Point3, Vec3};
+
+fn write_ppm_header(
+    file : &mut File,
+    image_width : usize,
+    image_height : usize
+) -> Result<(), Error> {
+    file.write("P3\n".as_bytes())?;
+    file.write(image_width.to_string().as_bytes())?;
+    file.write(" ".as_bytes())?;
+    file.write(image_height.to_string().as_bytes())?;
+    file.write("\n255\n".as_bytes())?;
+    Ok(())
+}
+
+pub struct Camera {
+    image_width : usize,
+    image_height : usize,
+    samples_per_pixel : usize,
+    center : Point3,
+    pixel00_loc : Point3,
+    pixel_delta_u : Vec3,
+    pixel_delta_v : Vec3
+}
+
+fn ray_colour<Hit>(ray : &Ray, world : &Hit) -> Colour
+where Hit : Hittable
+{
+    let initial_t = Interval {min: 0.0, max : f64::MAX};
+    if let Some(hit) = world.hit(ray, &initial_t) {
+        return 0.5 * (hit.normal + Colour::new(1.0, 1.0, 1.0));
+    }
+    let unit_direction = ray.direction().unit();
+    let a = 0.5*(unit_direction.y() + 1.0);
+    (1.0-a)*Colour::new(1.0, 1.0, 1.0) + a*Colour::new(0.5, 0.7, 1.0)
+}
+
+impl Camera {
+
+    pub fn default() -> Camera {
+        Camera::new(1.0, 100, 10)
+    }
+    pub fn new(aspect_ratio : f64, image_width : usize, samples_per_pixel : usize) -> Camera {
+        let image_height = max(
+            1,
+            ((image_width as f64) / aspect_ratio) as usize
+        );
+        // Setup the camera coords
+        let focal_length = 1.0;
+        let viewport_height = 2.0;
+        let viewport_width = viewport_height * (image_width as f64)/ (image_height as f64);
+        let center = Point3::zero();
+        // Convert img coords to view coords
+        let viewport_u = Vec3::new(viewport_width, 0.0, 0.0);
+        let viewport_v = Vec3::new(0.0, -viewport_height, 0.0);
+        // Pixel size in viewport
+        let pixel_delta_u = viewport_u / (image_width as f64);
+        let pixel_delta_v = viewport_v / (image_height as f64);
+        // Start point
+        let viewport_upper_left = center
+            - Vec3::new(0.0, 0.0, focal_length) - viewport_u/2.0 - viewport_v/2.0;
+        let pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
+        Camera {
+            image_width,
+            image_height,
+            samples_per_pixel,
+            center,
+            pixel00_loc,
+            pixel_delta_u,
+            pixel_delta_v,
+        }
+    }
+
+    pub fn render<Hit>(&self, image_file : &mut File, world : &Hit)
+        where Hit : Hittable
+    {
+        let mut rng = thread_rng();
+        let pixel_colour_scale = 1.0 / self.samples_per_pixel as f64;
+        write_ppm_header(image_file, self.image_width, self.image_height).expect("Could not write header");
+        // Render
+        for j in 0..self.image_height {
+            print!("\rScanlines remaining: {}       ", self.image_height - j);
+            for i in 0..self.image_width {
+                let mut pixel_colour = Colour::zero();
+                for _ in 0..self.samples_per_pixel {
+                    let ray = self.ray(&mut rng, i, j);
+                    pixel_colour += ray_colour(&ray, world);
+                }
+                pixel_colour *= pixel_colour_scale;
+                write_ppm_colour(image_file, &pixel_colour).expect("Could not write to file")
+            }
+        }
+        print!("\rDONE                      ");
+    }
+
+    fn ray<R>(&self, rng : &mut R, i : usize, j : usize) -> Ray
+      where R : Rng
+    {
+        let offset = self.offset(rng);
+        let u = i as f64 + offset.x();
+        let v = j as f64 + offset.x();
+        let viewpoint_pt = self.pixel00_loc
+            + (u * self.pixel_delta_u)
+            + (v * self.pixel_delta_v);
+        Ray::between(&self.center, &viewpoint_pt)
+    }
+
+    fn offset<R>(&self, rng : &mut R) -> Vec3
+    where R : Rng
+    {
+        let x = rng.gen::<f64>() - 0.5;
+        let y = rng.gen::<f64>() - 0.5;
+        Vec3::new(x, y, 0.0)
+    }
+}
