@@ -5,14 +5,25 @@ use crate::vec3::Vec3;
 
 pub type Colour = Vec3;
 
+fn gamma_correct(linear : f64) -> f64 {
+    if linear > 0.0 {
+        linear.sqrt()
+    } else {
+        linear
+    }
+}
+
 pub fn write_ppm_colour(
     file : &mut File,
     colour : &Colour
 ) -> Result<(), Error> {
     let range = Interval {min : 0.0, max : 1.0};
-    let b_red = (range.clamp(colour.x()) * 256.0) as u8;
-    let b_green = (range.clamp(colour.y()) * 256.0) as u8;
-    let b_blue = (range.clamp(colour.z()) * 256.0) as u8;
+    let r = gamma_correct(colour.x());
+    let g = gamma_correct(colour.y());
+    let b = gamma_correct(colour.z());
+    let b_red = (range.clamp(r) * 256.0) as u8;
+    let b_green = (range.clamp(g) * 256.0) as u8;
+    let b_blue = (range.clamp(b) * 256.0) as u8;
     file.write(b_red.to_string().as_bytes())?;
     file.write(" ".as_bytes())?;
     file.write(b_green.to_string().as_bytes())?;
