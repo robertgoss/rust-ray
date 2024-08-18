@@ -6,7 +6,7 @@ pub struct Vec3 {
     coords : [f64; 3]
 }
 pub type Point3 = Vec3;
-
+pub type UnitVec3 = Vec3;
 
 impl Vec3 {
     pub fn zero() -> Vec3 {
@@ -44,6 +44,10 @@ impl Vec3 {
         *self = unit_vector(self)
     }
 
+    pub fn near_zero(&self) -> bool {
+        self.x().abs() < 1e-8 || self.y().abs() < 1e-8 || self.z().abs() < 1e-8
+    }
+
 }
 
 pub fn random_unit<R>(rng : &mut R) -> Vec3
@@ -68,6 +72,10 @@ where R : Rng {
     } else {
         -v
     }
+}
+
+pub fn reflect(v : &Vec3, normal : &UnitVec3) -> Vec3 {
+    v - 2.0 * dot(v, normal) * normal
 }
 
 pub fn cross(v1 : &Vec3, v2 : &Vec3) -> Vec3 {

@@ -1,32 +1,36 @@
 use crate::interval::Interval;
+use crate::materials::Material;
 use crate::ray::Ray;
-use crate::vec3::{dot, Point3, Vec3};
+use crate::vec3::{dot, Point3, UnitVec3, Vec3};
 
-pub struct HitRecord {
+pub struct HitRecord<'mat, R> {
     pub point : Point3,
-    pub normal : Vec3,
+    pub normal : UnitVec3,
     pub t : f64,
-    pub front_face : bool
+    pub front_face : bool,
+    pub material : &'mat dyn Material<R>
 }
-pub trait Hittable {
-    fn hit(&self, ray : &Ray, ray_t : &Interval) -> Option<HitRecord>;
+pub trait Hittable<R> {
+    fn hit(&self, ray : &Ray, ray_t : &Interval) -> Option<HitRecord<R>>;
 }
 
-impl HitRecord {
-    fn new(point : &Point3, t : f64, ray : &Ray, outward_normal : &Vec3) -> HitRecord {
+impl<'mat, R> HitRecord<'mat, R> {
+    fn new(point : &Point3, t : f64, ray : &Ray, outward_normal : &Vec3, material : &'mat dyn Material<R>) -> HitRecord<'mat, R> {
         if dot(ray.direction(), outward_normal) < 0.0 {
             HitRecord {
                 point : *point,
                 t,
                 normal : *outward_normal,
-                front_face : true
+                front_face : true,
+                material
             }
         } else {
             HitRecord {
                 point : *point,
                 t,
                 normal : -outward_normal,
-                front_face : false
+                front_face : false,
+                material
             }
         }
     }
@@ -34,23 +38,24 @@ impl HitRecord {
 
 
 
-pub struct Sphere {
+pub struct Sphere<'mat, R> {
     center : Point3,
-    radius : f64
+    radius : f64,
+    material : &'mat (dyn Material<R> + 'mat)
 }
 
-impl Sphere {
-    pub fn new(center : &Point3, radius : f64) -> Sphere {
+impl<'mat, R> Sphere<'mat, R> {
+    pub fn new(center : &Point3, radius : f64, material : &'mat (dyn Material<R> + 'mat)) -> Sphere<'mat, R> {
         if radius < 0.0 {
-            Sphere { center: *center, radius: 0.0}
+            Sphere { center: *center, radius: 0.0, material}
         } else {
-            Sphere { center: *center, radius }
+            Sphere { center: *center, radius , material}
         }
     }
 }
 
-impl Hittable for Sphere {
-    fn hit(&self, ray: &Ray, ray_t : &Interval) -> Option<HitRecord> {
+impl<'mat, R> Hittable<R> for Sphere<'mat, R> {
+    fn hit(&self, ray: &Ray, ray_t : &Interval) -> Option<HitRecord<'mat, R>> {
         let oc = self.center - ray.origin();
         // Quad formula
         let a = ray.direction().length_squared();
@@ -76,19 +81,20 @@ impl Hittable for Sphere {
                 &point,
                 root,
                 ray,
-                &normal
+                &normal,
+                self.material
             )
         )
     }
 }
 
 
-pub struct HittableList {
-    objects : Vec<Box<dyn Hittable>>
+pub struct HittableList<'a, R> {
+    objects : Vec<Box<dyn Hittable<R> + 'a>>
 }
 
-impl HittableList {
-    pub fn new() -> HittableList {
+impl<'a, R> HittableList<'a, R> {
+    pub fn new() -> HittableList<'a, R> {
         HittableList { objects : Vec::new() }
     }
 
@@ -96,14 +102,14 @@ impl HittableList {
         self.objects.clear()
     }
 
-    pub fn add(&mut self, object : Box<dyn Hittable>) {
+    pub fn add(&mut self, object : Box<dyn Hittable<R> + 'a>) {
         self.objects.push(object)
     }
 }
 
-impl Hittable for HittableList {
-    fn hit(&self, ray: &Ray, ray_t : &Interval) -> Option<HitRecord> {
-        let mut best_hit : Option<HitRecord> = None;
+impl<'a, R> Hittable<R> for HittableList<'a, R> {
+    fn hit(&self, ray: &Ray, ray_t : &Interval) -> Option<HitRecord<R>> {
+        let mut best_hit : Option<HitRecord<R>> = None;
         let mut current_best = ray_t.max;
         for object in self.objects.iter() {
             let current_ray_t = Interval { min: ray_t.min, max : current_best };

@@ -5,6 +5,14 @@ use crate::vec3::Vec3;
 
 pub type Colour = Vec3;
 
+pub fn attenuate(attenuation : &Colour, colour : &Colour) -> Colour {
+    Colour::new(
+        attenuation.x() * colour.x(),
+        attenuation.y() * colour.y(),
+        attenuation.z() * colour.z()
+    )
+}
+
 fn gamma_correct(linear : f64) -> f64 {
     if linear > 0.0 {
         linear.sqrt()

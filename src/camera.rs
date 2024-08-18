@@ -2,11 +2,12 @@ use std::cmp::max;
 use std::fs::File;
 use std::io::{Error, Write};
 use rand::{thread_rng, Rng};
-use crate::colour::{write_ppm_colour, Colour};
+use rand::rngs::ThreadRng;
+use crate::colour::{attenuate, write_ppm_colour, Colour};
 use crate::hittables::Hittable;
 use crate::interval::Interval;
 use crate::ray::Ray;
-use crate::vec3::{random_unit, Point3, Vec3};
+use crate::vec3::{Point3, Vec3};
 
 fn write_ppm_header(
     file : &mut File,
@@ -33,16 +34,19 @@ pub struct Camera {
 }
 
 fn ray_colour<Hit, R>(rng : &mut R, world : &Hit, ray : &Ray, max_depth : u8) -> Colour
-where Hit : Hittable, R : Rng
+where R : Rng, Hit : Hittable<R>
 {
     if max_depth == 0 {
         return Colour::new(0.0, 0.0, 0.0);
     }
     let initial_t = Interval {min: 0.001, max : f64::MAX};
     if let Some(hit) = world.hit(ray, &initial_t) {
-        let direction = hit.normal + random_unit(rng);
-        let bounce_ray = Ray::new(&hit.point, &direction);
-        return 0.5 * ray_colour(rng, world, &bounce_ray, max_depth - 1);
+        return if let  Some((attenuation, scattered_ray)) = hit.material.scatter(rng, ray, &hit) {
+            let scattered = ray_colour(rng, world, &scattered_ray, max_depth-1);
+            attenuate(&attenuation, &scattered)
+        } else {
+            Colour::zero()
+        }
     }
     let unit_direction = ray.direction().unit();
     let a = 0.5*(unit_direction.y() + 1.0);
@@ -84,7 +88,7 @@ impl Camera {
     }
 
     pub fn render<Hit>(&self, image_file : &mut File, world : &Hit)
-        where Hit : Hittable
+        where Hit : Hittable<ThreadRng>
     {
         let mut rng = thread_rng();
         let pixel_colour_scale = 1.0 / self.samples_per_pixel as f64;
