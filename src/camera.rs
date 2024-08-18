@@ -6,7 +6,7 @@ use crate::colour::{write_ppm_colour, Colour};
 use crate::hittables::Hittable;
 use crate::interval::Interval;
 use crate::ray::Ray;
-use crate::vec3::{Point3, Vec3};
+use crate::vec3::{random_hemisphere, Point3, Vec3};
 
 fn write_ppm_header(
     file : &mut File,
@@ -28,15 +28,21 @@ pub struct Camera {
     center : Point3,
     pixel00_loc : Point3,
     pixel_delta_u : Vec3,
-    pixel_delta_v : Vec3
+    pixel_delta_v : Vec3,
+    max_depth : u8
 }
 
-fn ray_colour<Hit>(ray : &Ray, world : &Hit) -> Colour
-where Hit : Hittable
+fn ray_colour<Hit, R>(rng : &mut R, world : &Hit, ray : &Ray, max_depth : u8) -> Colour
+where Hit : Hittable, R : Rng
 {
-    let initial_t = Interval {min: 0.0, max : f64::MAX};
+    if max_depth == 0 {
+        return Colour::new(0.0, 0.0, 0.0);
+    }
+    let initial_t = Interval {min: 0.001, max : f64::MAX};
     if let Some(hit) = world.hit(ray, &initial_t) {
-        return 0.5 * (hit.normal + Colour::new(1.0, 1.0, 1.0));
+        let direction = random_hemisphere(rng, &hit.normal);
+        let bounce_ray = Ray::new(&hit.point, &direction);
+        return 0.5 * ray_colour(rng, world, &bounce_ray, max_depth - 1);
     }
     let unit_direction = ray.direction().unit();
     let a = 0.5*(unit_direction.y() + 1.0);
@@ -45,10 +51,7 @@ where Hit : Hittable
 
 impl Camera {
 
-    pub fn default() -> Camera {
-        Camera::new(1.0, 100, 10)
-    }
-    pub fn new(aspect_ratio : f64, image_width : usize, samples_per_pixel : usize) -> Camera {
+    pub fn new(aspect_ratio : f64, image_width : usize, samples_per_pixel : usize, max_depth : u8) -> Camera {
         let image_height = max(
             1,
             ((image_width as f64) / aspect_ratio) as usize
@@ -76,6 +79,7 @@ impl Camera {
             pixel00_loc,
             pixel_delta_u,
             pixel_delta_v,
+            max_depth
         }
     }
 
@@ -92,7 +96,7 @@ impl Camera {
                 let mut pixel_colour = Colour::zero();
                 for _ in 0..self.samples_per_pixel {
                     let ray = self.ray(&mut rng, i, j);
-                    pixel_colour += ray_colour(&ray, world);
+                    pixel_colour += ray_colour(&mut rng, world, &ray, self.max_depth);
                 }
                 pixel_colour *= pixel_colour_scale;
                 write_ppm_colour(image_file, &pixel_colour).expect("Could not write to file")

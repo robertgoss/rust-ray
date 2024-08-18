@@ -10,7 +10,6 @@ mod interval;
 mod camera;
 
 use std::fs::File;
-use std::io::Write;
 use crate::camera::Camera;
 use crate::hittables::{Hittable, HittableList, Sphere};
 use crate::vec3::Point3;
@@ -22,7 +21,8 @@ fn main() {
     let aspect_ratio = 16.0 / 9.0;
     let image_width : usize = 400;
     let samples_per_pixel = 100;
-    let camera = Camera::new(aspect_ratio, image_width, samples_per_pixel);
+    let max_depth : u8 = 50;
+    let camera = Camera::new(aspect_ratio, image_width, samples_per_pixel, max_depth);
 
     // Make world
     let mut world = HittableList::new();

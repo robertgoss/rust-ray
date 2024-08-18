@@ -1,4 +1,5 @@
 use std::ops;
+use rand::Rng;
 
 #[derive(Copy, Clone)]
 pub struct Vec3 {
@@ -41,6 +42,31 @@ impl Vec3 {
 
     pub fn unitize(&mut self) {
         *self = unit_vector(self)
+    }
+
+}
+
+fn random_unit<R>(rng : &mut R) -> Vec3
+where R : Rng {
+    let x = (rng.gen::<f64>() * 2.0) - 1.0;
+    let y = (rng.gen::<f64>() * 2.0) - 1.0;
+    let z = (rng.gen::<f64>() * 2.0) - 1.0;
+    let v = Vec3::new(x,y,z);
+    let l = v.length_squared();
+    if l > 1.0 {
+        random_unit(rng)
+    } else {
+        v / (l.sqrt())
+    }
+}
+
+pub fn random_hemisphere<R>(rng : &mut R, normal : &Vec3) -> Vec3
+where R : Rng {
+    let v = random_unit(rng);
+    if dot(&v, normal) > 0.0 {
+        v
+    } else {
+        -v
     }
 }
 
