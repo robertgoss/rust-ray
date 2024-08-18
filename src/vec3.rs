@@ -46,7 +46,7 @@ impl Vec3 {
 
 }
 
-fn random_unit<R>(rng : &mut R) -> Vec3
+pub fn random_unit<R>(rng : &mut R) -> Vec3
 where R : Rng {
     let x = (rng.gen::<f64>() * 2.0) - 1.0;
     let y = (rng.gen::<f64>() * 2.0) - 1.0;

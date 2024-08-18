@@ -6,7 +6,7 @@ use crate::colour::{write_ppm_colour, Colour};
 use crate::hittables::Hittable;
 use crate::interval::Interval;
 use crate::ray::Ray;
-use crate::vec3::{random_hemisphere, Point3, Vec3};
+use crate::vec3::{random_unit, Point3, Vec3};
 
 fn write_ppm_header(
     file : &mut File,
@@ -40,7 +40,7 @@ where Hit : Hittable, R : Rng
     }
     let initial_t = Interval {min: 0.001, max : f64::MAX};
     if let Some(hit) = world.hit(ray, &initial_t) {
-        let direction = random_hemisphere(rng, &hit.normal);
+        let direction = hit.normal + random_unit(rng);
         let bounce_ray = Ray::new(&hit.point, &direction);
         return 0.5 * ray_colour(rng, world, &bounce_ray, max_depth - 1);
     }
