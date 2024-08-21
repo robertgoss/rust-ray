@@ -78,6 +78,14 @@ pub fn reflect(v : &Vec3, normal : &UnitVec3) -> Vec3 {
     v - 2.0 * dot(v, normal) * normal
 }
 
+pub fn refract(vec : &UnitVec3, normal : &UnitVec3, ref_ratio : f64) -> Vec3 {
+    let mut cos_th = dot(&-vec, normal);
+    if cos_th > 1.0 { cos_th = 1.0 };
+    let r_perp = ref_ratio * (vec + cos_th * normal);
+    let r_par = -(1.0-r_perp.length_squared()).abs().sqrt() * normal;
+    r_par + r_perp
+}
+
 pub fn cross(v1 : &Vec3, v2 : &Vec3) -> Vec3 {
     Vec3::new(
         v1.y() * v2.z() - v1.z() * v2.y(),
