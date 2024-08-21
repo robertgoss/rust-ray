@@ -2,7 +2,7 @@ use rand::Rng;
 use crate::colour::Colour;
 use crate::hittables::HitRecord;
 use crate::ray::Ray;
-use crate::vec3::{random_unit, reflect, refract};
+use crate::vec3::{dot, random_unit, reflect, refract};
 
 pub trait Material<R> {
     fn scatter(&self, rng : &mut R, ray_in : &Ray, hit_record: &HitRecord<R>) -> Option<(Colour, Ray)>
@@ -67,10 +67,16 @@ impl Dielectric {
     pub fn new(refraction_index : f64) -> Dielectric {
         Dielectric { refraction_index }
     }
+
+    fn refractivity_approx(cos_th : f64, ratio : f64) -> f64 {
+        let mut r0 = (1.0 - ratio) / (1.0 + ratio);
+        r0 = r0*r0;
+        r0 + (1.0-r0)*(1.0 - cos_th).powi(5)
+    }
 }
 
 impl<R> Material<R> for Dielectric {
-    fn scatter(&self, _rng: &mut R, ray_in: &Ray, hit_record: &HitRecord<R>) -> Option<(Colour, Ray)>
+    fn scatter(&self, rng: &mut R, ray_in: &Ray, hit_record: &HitRecord<R>) -> Option<(Colour, Ray)>
     where
         R: Rng
     {
@@ -79,7 +85,18 @@ impl<R> Material<R> for Dielectric {
         } else {
             self.refraction_index
         };
-        let scatter_direction = refract(&ray_in.direction().unit(), &hit_record.normal, ratio);
+        let in_direction = ray_in.direction().unit();
+        let mut cos_th = dot(&-in_direction, &hit_record.normal);
+        if cos_th > 1.0 { cos_th = 1.0 };
+        let sin_th = (1.0 - cos_th*cos_th).sqrt();
+        // Total internal
+        let cannot_refract = ratio * sin_th > 1.0;
+        let should_reflect = Self::refractivity_approx(cos_th, ratio) > rng.gen::<f64>();
+        let scatter_direction = if cannot_refract || should_reflect {
+            reflect(&in_direction, &hit_record.normal)
+        } else {
+            refract(&in_direction, &hit_record.normal, ratio)
+        };
         Some( (
             Colour::new(1.0,1.0,1.0),
             Ray::new(&hit_record.point, &scatter_direction)
