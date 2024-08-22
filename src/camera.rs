@@ -142,7 +142,7 @@ impl Camera {
             + (u * self.pixel_delta_u)
             + (v * self.pixel_delta_v);
         let origin = self.defocus_disc_sample(rng);
-        Ray::between(&self.center, &viewpoint_pt)
+        Ray::between(&origin, &viewpoint_pt)
     }
 
     fn defocus_disc_sample<R>(&self, rng : &mut R) -> Point3
