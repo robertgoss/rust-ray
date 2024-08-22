@@ -16,7 +16,7 @@ use crate::camera::Camera;
 use crate::colour::Colour;
 use crate::hittables::{Hittable, HittableList, Sphere};
 use crate::materials::{Dielectric, Lambertian, Metal};
-use crate::vec3::Point3;
+use crate::vec3::{Point3, Vec3};
 
 // Render ray
 
@@ -26,7 +26,17 @@ fn main() {
     let image_width : usize = 400;
     let samples_per_pixel = 100;
     let max_depth : u8 = 50;
-    let camera = Camera::new(aspect_ratio, image_width, samples_per_pixel, max_depth);
+    let fov : f64 = 20.0;
+    let camera = Camera::new(
+        &Point3::new(-2.0, 2.0, 1.0),
+        &Point3::new(0.0, 0.0, -1.0),
+        &Vec3::new(0.0, 1.0, 0.0),
+        aspect_ratio,
+        image_width,
+        samples_per_pixel,
+        max_depth,
+        fov
+    );
 
 
     let material_ground = Lambertian::new(&Colour::new(0.8,0.8,0.0));

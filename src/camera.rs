@@ -1,13 +1,14 @@
 use std::cmp::max;
 use std::fs::File;
 use std::io::{Error, Write};
+use std::f64::consts::PI;
 use rand::{thread_rng, Rng};
 use rand::rngs::ThreadRng;
 use crate::colour::{attenuate, write_ppm_colour, Colour};
 use crate::hittables::Hittable;
 use crate::interval::Interval;
 use crate::ray::Ray;
-use crate::vec3::{Point3, Vec3};
+use crate::vec3::{cross, Point3, Vec3};
 
 fn write_ppm_header(
     file : &mut File,
@@ -55,31 +56,44 @@ where R : Rng, Hit : Hittable<R>
 
 impl Camera {
 
-    pub fn new(aspect_ratio : f64, image_width : usize, samples_per_pixel : usize, max_depth : u8) -> Camera {
+    pub fn new(
+        look_from : &Point3,
+        look_at : &Point3,
+        look_up : &Vec3,
+        aspect_ratio : f64,
+        image_width : usize,
+        samples_per_pixel : usize,
+        max_depth : u8,
+        vertical_fov : f64
+    ) -> Camera {
         let image_height = max(
             1,
             ((image_width as f64) / aspect_ratio) as usize
         );
         // Setup the camera coords
-        let focal_length = 1.0;
-        let viewport_height = 2.0;
+        let focal_length = (look_from-look_at).length();
+        let h = (vertical_fov * PI / 360.0).tan();
+        let viewport_height = 2.0 * h * focal_length;
         let viewport_width = viewport_height * (image_width as f64)/ (image_height as f64);
-        let center = Point3::zero();
+        let w = (look_from - look_at).unit();
+        let u = cross(look_up, &w).unit();
+        let v = cross(&w, &u);
+
         // Convert img coords to view coords
-        let viewport_u = Vec3::new(viewport_width, 0.0, 0.0);
-        let viewport_v = Vec3::new(0.0, -viewport_height, 0.0);
+        let viewport_u = viewport_width * u;
+        let viewport_v = -viewport_height * v;
         // Pixel size in viewport
         let pixel_delta_u = viewport_u / (image_width as f64);
         let pixel_delta_v = viewport_v / (image_height as f64);
         // Start point
-        let viewport_upper_left = center
-            - Vec3::new(0.0, 0.0, focal_length) - viewport_u/2.0 - viewport_v/2.0;
+        let viewport_upper_left = look_from
+            - focal_length*w - viewport_u/2.0 - viewport_v/2.0;
         let pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
         Camera {
             image_width,
             image_height,
             samples_per_pixel,
-            center,
+            center : *look_from,
             pixel00_loc,
             pixel_delta_u,
             pixel_delta_v,
@@ -114,7 +128,7 @@ impl Camera {
     {
         let offset = self.offset(rng);
         let u = i as f64 + offset.x();
-        let v = j as f64 + offset.x();
+        let v = j as f64 + offset.y();
         let viewpoint_pt = self.pixel00_loc
             + (u * self.pixel_delta_u)
             + (v * self.pixel_delta_v);
