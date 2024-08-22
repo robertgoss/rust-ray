@@ -35,7 +35,9 @@ fn main() {
         image_width,
         samples_per_pixel,
         max_depth,
-        fov
+        fov,
+        3.4,
+        10.0
     );
 
 

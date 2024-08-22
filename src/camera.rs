@@ -8,7 +8,7 @@ use crate::colour::{attenuate, write_ppm_colour, Colour};
 use crate::hittables::Hittable;
 use crate::interval::Interval;
 use crate::ray::Ray;
-use crate::vec3::{cross, Point3, Vec3};
+use crate::vec3::{cross, random_in_disc, Point3, Vec3};
 
 fn write_ppm_header(
     file : &mut File,
@@ -31,6 +31,8 @@ pub struct Camera {
     pixel00_loc : Point3,
     pixel_delta_u : Vec3,
     pixel_delta_v : Vec3,
+    defocus_u : Vec3,
+    defocus_v : Vec3,
     max_depth : u8
 }
 
@@ -64,16 +66,17 @@ impl Camera {
         image_width : usize,
         samples_per_pixel : usize,
         max_depth : u8,
-        vertical_fov : f64
+        vertical_fov : f64,
+        defocus_distance : f64,
+        defocus_angle : f64
     ) -> Camera {
         let image_height = max(
             1,
             ((image_width as f64) / aspect_ratio) as usize
         );
         // Setup the camera coords
-        let focal_length = (look_from-look_at).length();
         let h = (vertical_fov * PI / 360.0).tan();
-        let viewport_height = 2.0 * h * focal_length;
+        let viewport_height = 2.0 * h * defocus_distance;
         let viewport_width = viewport_height * (image_width as f64)/ (image_height as f64);
         let w = (look_from - look_at).unit();
         let u = cross(look_up, &w).unit();
@@ -85,9 +88,13 @@ impl Camera {
         // Pixel size in viewport
         let pixel_delta_u = viewport_u / (image_width as f64);
         let pixel_delta_v = viewport_v / (image_height as f64);
+        // defocus
+        let defocus_radius = defocus_distance * (defocus_angle * PI / 180.0).tan();
+        let defocus_u = defocus_radius * u;
+        let defocus_v = defocus_radius * v;
         // Start point
         let viewport_upper_left = look_from
-            - focal_length*w - viewport_u/2.0 - viewport_v/2.0;
+            - defocus_distance*w - viewport_u/2.0 - viewport_v/2.0;
         let pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
         Camera {
             image_width,
@@ -97,6 +104,8 @@ impl Camera {
             pixel00_loc,
             pixel_delta_u,
             pixel_delta_v,
+            defocus_u,
+            defocus_v,
             max_depth
         }
     }
@@ -132,7 +141,14 @@ impl Camera {
         let viewpoint_pt = self.pixel00_loc
             + (u * self.pixel_delta_u)
             + (v * self.pixel_delta_v);
+        let origin = self.defocus_disc_sample(rng);
         Ray::between(&self.center, &viewpoint_pt)
+    }
+
+    fn defocus_disc_sample<R>(&self, rng : &mut R) -> Point3
+    where R : Rng {
+        let sample = random_in_disc(rng);
+        self.center + sample.x() * self.defocus_u + sample.y() * self.defocus_v
     }
 
     fn offset<R>(&self, rng : &mut R) -> Vec3

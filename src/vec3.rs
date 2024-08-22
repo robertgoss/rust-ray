@@ -74,6 +74,20 @@ where R : Rng {
     }
 }
 
+pub fn random_in_disc<R>(rng : &mut R) -> Vec3
+where R : Rng
+{
+    let x = (rng.gen::<f64>() * 2.0) - 1.0;
+    let y = (rng.gen::<f64>() * 2.0) - 1.0;
+    let v = Vec3::new(x,y,0.0);
+    let l = v.length_squared();
+    if l > 1.0 {
+        random_in_disc(rng)
+    } else {
+        v
+    }
+}
+
 pub fn reflect(v : &Vec3, normal : &UnitVec3) -> Vec3 {
     v - 2.0 * dot(v, normal) * normal
 }
