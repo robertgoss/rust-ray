@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::{Error, Write};
+use rand::Rng;
 use crate::interval::Interval;
 use crate::vec3::Vec3;
 
@@ -39,4 +40,21 @@ pub fn write_ppm_colour(
     file.write(b_blue.to_string().as_bytes())?;
     file.write("\n".as_bytes())?;
     Ok(())
+}
+
+pub fn random_colour_light<R>(rng : &mut R) -> Colour
+where R : Rng
+{
+    let r = (1.0 + rng.gen::<f64>()) * 0.5;
+    let g = (1.0 + rng.gen::<f64>()) * 0.5;
+    let b = (1.0 + rng.gen::<f64>()) * 0.5;
+    Colour::new(r,g,b)
+}
+pub fn random_colour_sq<R>(rng : &mut R) -> Colour
+where R : Rng
+{
+    let r = rng.gen::<f64>() * rng.gen::<f64>();
+    let g = rng.gen::<f64>() * rng.gen::<f64>();
+    let b = rng.gen::<f64>() * rng.gen::<f64>();
+    Colour::new(r,g,b)
 }

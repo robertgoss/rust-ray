@@ -64,16 +64,6 @@ where R : Rng {
     }
 }
 
-pub fn random_hemisphere<R>(rng : &mut R, normal : &Vec3) -> Vec3
-where R : Rng {
-    let v = random_unit(rng);
-    if dot(&v, normal) > 0.0 {
-        v
-    } else {
-        -v
-    }
-}
-
 pub fn random_in_disc<R>(rng : &mut R) -> Vec3
 where R : Rng
 {

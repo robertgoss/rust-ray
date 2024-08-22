@@ -1,12 +1,12 @@
 use rand::Rng;
+use rand::rngs::ThreadRng;
 use crate::colour::Colour;
 use crate::hittables::HitRecord;
 use crate::ray::Ray;
 use crate::vec3::{dot, random_unit, reflect, refract};
 
-pub trait Material<R> {
-    fn scatter(&self, rng : &mut R, ray_in : &Ray, hit_record: &HitRecord<R>) -> Option<(Colour, Ray)>
-    where R : Rng;
+pub trait Material {
+    fn scatter(&self, rng : &mut ThreadRng, ray_in : &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)>;
 }
 
 pub struct Lambertian {
@@ -19,10 +19,8 @@ impl Lambertian {
     }
 }
 
-impl<R> Material<R> for Lambertian {
-    fn scatter(&self, rng: &mut R, _ray_in: &Ray, hit_record: &HitRecord<R>) -> Option<(Colour, Ray)>
-    where
-        R: Rng
+impl Material for Lambertian {
+    fn scatter(&self, rng: &mut ThreadRng, _ray_in: &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)>
     {
         let mut scatter_direction = hit_record.normal + random_unit(rng);
         if scatter_direction.near_zero() {
@@ -48,10 +46,8 @@ impl Metal {
     }
 }
 
-impl<R> Material<R> for Metal {
-    fn scatter(&self, rng: &mut R, ray_in: &Ray, hit_record: &HitRecord<R>) -> Option<(Colour, Ray)>
-    where
-        R: Rng
+impl Material for Metal {
+    fn scatter(&self, rng: &mut ThreadRng, ray_in: &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)>
     {
         let scatter_direction = reflect(ray_in.direction(), &hit_record.normal);
         let fuzzed_scatter_direction = scatter_direction.unit() + self.fuzz * random_unit(rng);
@@ -75,10 +71,8 @@ impl Dielectric {
     }
 }
 
-impl<R> Material<R> for Dielectric {
-    fn scatter(&self, rng: &mut R, ray_in: &Ray, hit_record: &HitRecord<R>) -> Option<(Colour, Ray)>
-    where
-        R: Rng
+impl Material for Dielectric {
+    fn scatter(&self, rng: &mut ThreadRng, ray_in: &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)>
     {
         let ratio = if hit_record.front_face {
             1.0 / self.refraction_index

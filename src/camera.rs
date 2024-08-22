@@ -36,8 +36,8 @@ pub struct Camera {
     max_depth : u8
 }
 
-fn ray_colour<Hit, R>(rng : &mut R, world : &Hit, ray : &Ray, max_depth : u8) -> Colour
-where R : Rng, Hit : Hittable<R>
+fn ray_colour<Hit>(rng : &mut ThreadRng, world : &Hit, ray : &Ray, max_depth : u8) -> Colour
+where Hit : Hittable
 {
     if max_depth == 0 {
         return Colour::new(0.0, 0.0, 0.0);
@@ -111,14 +111,14 @@ impl Camera {
     }
 
     pub fn render<Hit>(&self, image_file : &mut File, world : &Hit)
-        where Hit : Hittable<ThreadRng>
+        where Hit : Hittable
     {
         let mut rng = thread_rng();
         let pixel_colour_scale = 1.0 / self.samples_per_pixel as f64;
         write_ppm_header(image_file, self.image_width, self.image_height).expect("Could not write header");
         // Render
         for j in 0..self.image_height {
-            print!("\rScanlines remaining: {}       ", self.image_height - j);
+            print!("\rScanlines remaining: {}       \n", self.image_height - j);
             for i in 0..self.image_width {
                 let mut pixel_colour = Colour::zero();
                 for _ in 0..self.samples_per_pixel {
