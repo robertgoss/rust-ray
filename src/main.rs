@@ -15,20 +15,20 @@ use rand::rngs::ThreadRng;
 use rand::{thread_rng, Rng};
 use crate::camera::Camera;
 use crate::colour::{random_colour_light, random_colour_sq, Colour};
-use crate::hittables::{HittableList, Sphere};
+use crate::hittables::{HittableList, MovingObject, Sphere};
 use crate::materials::{Dielectric, Lambertian, Material, Metal};
 use crate::vec3::{Point3, Vec3};
 
 
-fn random_material(rng : &mut ThreadRng) -> Box<dyn Material>{
+fn random_material(rng : &mut ThreadRng) -> (Box<dyn Material>, bool){
     let choice = rng.gen::<f64>();
     if choice < 0.8 {
-        Box::new(Lambertian::new(&random_colour_sq(rng)))
+        (Box::new(Lambertian::new(&random_colour_sq(rng))), true)
     } else if choice < 0.95 {
         let fuzz = rng.gen::<f64>() * 0.5;
-        Box::new(Metal::new(&random_colour_light(rng), fuzz))
+        (Box::new(Metal::new(&random_colour_light(rng), fuzz)), false)
     } else {
-        Box::new(Dielectric::new(1.5))
+        (Box::new(Dielectric::new(1.5)), false)
     }
 }
 
@@ -41,8 +41,8 @@ fn random_small_center(rng : &mut ThreadRng, i : i64, j : i64) -> Point3 {
 fn main() {
     // Get dimensions
     let aspect_ratio = 16.0 / 9.0;
-    let image_width : usize = 1200;
-    let samples_per_pixel = 800;
+    let image_width : usize = 400;
+    let samples_per_pixel = 100;
     let max_depth : u8 = 50;
     let fov : f64 = 20.0;
     let camera = Camera::new(
@@ -65,7 +65,7 @@ fn main() {
 
     // Make materials
     let material_ground = Lambertian::new(&Colour::new(0.5,0.5,0.5));
-    let mut small_sphere_materials : Vec<Box<dyn Material>> = Vec::new();
+    let mut small_sphere_materials : Vec<(Box<dyn Material>, bool)> = Vec::new();
     for _ in 0..small_sphere_num_total {
         small_sphere_materials.push(random_material(&mut rng));
     }
@@ -73,7 +73,7 @@ fn main() {
     let sphere_material2 = Lambertian::new(&Colour::new(0.4, 0.2, 0.1));
     let sphere_material3 = Metal::new(&Colour::new(0.7, 0.6, 0.5), 0.0);
 
-
+    // Make groung
     // Make world
     let mut world = HittableList::new();
     // Ground
@@ -89,8 +89,14 @@ fn main() {
             }
         }
     }
-    for (center, mat) in centers.iter().zip(small_sphere_materials.iter()) {
-        world.add(Box::new(Sphere::new(&center, 0.2, mat.as_ref())))
+    for (center, (mat, moves)) in centers.iter().zip(small_sphere_materials.iter()) {
+        let sphere = Box::new(Sphere::new(&center, 0.2, mat.as_ref()));
+        if *moves {
+            let jump = Vec3::new(0.0, rng.gen::<f64>() * 0.25, 0.0);
+            world.add(Box::new(MovingObject::new(&jump, sphere)));
+        } else {
+            world.add(sphere);
+        }
     }
 
     // Add big spheres

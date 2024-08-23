@@ -16,7 +16,7 @@ pub trait Hittable {
 
 impl<'mat> HitRecord<'mat> {
     fn new(point : &Point3, t : f64, ray : &Ray, outward_normal : &Vec3, material : &'mat dyn Material) -> HitRecord<'mat> {
-        if dot(ray.direction(), outward_normal) < 0.0 {
+        if dot(&ray.direction, outward_normal) < 0.0 {
             HitRecord {
                 point : *point,
                 t,
@@ -56,10 +56,10 @@ impl<'mat> Sphere<'mat> {
 
 impl<'mat> Hittable for Sphere<'mat> {
     fn hit(&self, ray: &Ray, ray_t : &Interval) -> Option<HitRecord<'mat>> {
-        let oc = self.center - ray.origin();
+        let oc = self.center - ray.origin;
         // Quad formula
-        let a = ray.direction().length_squared();
-        let h = dot(ray.direction(), &oc);
+        let a = ray.direction.length_squared();
+        let h = dot(&ray.direction, &oc);
         let c = oc.length_squared() - self.radius * self.radius;
         let discriminant = h*h - a*c;
         if discriminant < 0.0 {
@@ -119,5 +119,33 @@ impl<'a> Hittable for HittableList<'a> {
             }
         }
         best_hit
+    }
+}
+
+pub struct MovingObject<'a> {
+    direction : Vec3,
+    object : Box<dyn Hittable + 'a>
+}
+
+impl<'a> MovingObject<'a> {
+    pub fn new(direction : &Vec3, object : Box<dyn Hittable + 'a>) -> MovingObject<'a> {
+        MovingObject {
+            direction : *direction,
+            object
+        }
+    }
+}
+
+impl<'a> Hittable for MovingObject<'a> {
+    fn hit(&self, ray: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+        let shift = self.direction*ray.time;
+        let moved_ray = Ray::new(&(ray.origin - shift), &ray.direction, 0.0);
+        self.object.hit(&moved_ray, ray_t).map(
+            |record| {
+                let mut record_mut = record;
+                record_mut.point = record_mut.point + shift;
+                record_mut
+            }
+        )
     }
 }

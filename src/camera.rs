@@ -51,7 +51,7 @@ where Hit : Hittable
             Colour::zero()
         }
     }
-    let unit_direction = ray.direction().unit();
+    let unit_direction = ray.direction.unit();
     let a = 0.5*(unit_direction.y() + 1.0);
     (1.0-a)*Colour::new(1.0, 1.0, 1.0) + a*Colour::new(0.5, 0.7, 1.0)
 }
@@ -142,7 +142,8 @@ impl Camera {
             + (u * self.pixel_delta_u)
             + (v * self.pixel_delta_v);
         let origin = self.defocus_disc_sample(rng);
-        Ray::between(&origin, &viewpoint_pt)
+        let time = rng.gen::<f64>();
+        Ray::between(&origin, &viewpoint_pt, time)
     }
 
     fn defocus_disc_sample<R>(&self, rng : &mut R) -> Point3

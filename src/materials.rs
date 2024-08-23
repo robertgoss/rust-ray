@@ -20,13 +20,13 @@ impl Lambertian {
 }
 
 impl Material for Lambertian {
-    fn scatter(&self, rng: &mut ThreadRng, _ray_in: &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)>
+    fn scatter(&self, rng: &mut ThreadRng, ray_in: &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)>
     {
         let mut scatter_direction = hit_record.normal + random_unit(rng);
         if scatter_direction.near_zero() {
             scatter_direction = hit_record.normal;
         }
-        Some( (self.albedo, Ray::new(&hit_record.point, &scatter_direction)) )
+        Some( (self.albedo, Ray::new(&hit_record.point, &scatter_direction, ray_in.time)) )
     }
 }
 
@@ -49,9 +49,9 @@ impl Metal {
 impl Material for Metal {
     fn scatter(&self, rng: &mut ThreadRng, ray_in: &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)>
     {
-        let scatter_direction = reflect(ray_in.direction(), &hit_record.normal);
+        let scatter_direction = reflect(&ray_in.direction, &hit_record.normal);
         let fuzzed_scatter_direction = scatter_direction.unit() + self.fuzz * random_unit(rng);
-        Some( (self.albedo, Ray::new(&hit_record.point, &fuzzed_scatter_direction)) )
+        Some( (self.albedo, Ray::new(&hit_record.point, &fuzzed_scatter_direction, ray_in.time)) )
     }
 }
 
@@ -79,7 +79,7 @@ impl Material for Dielectric {
         } else {
             self.refraction_index
         };
-        let in_direction = ray_in.direction().unit();
+        let in_direction = ray_in.direction.unit();
         let mut cos_th = dot(&-in_direction, &hit_record.normal);
         if cos_th > 1.0 { cos_th = 1.0 };
         let sin_th = (1.0 - cos_th*cos_th).sqrt();
@@ -93,7 +93,7 @@ impl Material for Dielectric {
         };
         Some( (
             Colour::new(1.0,1.0,1.0),
-            Ray::new(&hit_record.point, &scatter_direction)
+            Ray::new(&hit_record.point, &scatter_direction, ray_in.time)
         ))
     }
 }
