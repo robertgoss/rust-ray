@@ -3,55 +3,57 @@ use rand::rngs::ThreadRng;
 use crate::colour::Colour;
 use crate::hittables::HitRecord;
 use crate::ray::Ray;
+use crate::textures::Texture;
 use crate::vec3::{dot, random_unit, reflect, refract};
 
 pub trait Material {
     fn scatter(&self, rng : &mut ThreadRng, ray_in : &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)>;
 }
 
-pub struct Lambertian {
-    albedo : Colour
+pub struct Lambertian<'tex> {
+    albedo : &'tex dyn Texture
 }
 
-impl Lambertian {
-    pub fn new(colour : &Colour) -> Lambertian {
-        Lambertian { albedo : *colour }
+impl<'tex> Lambertian<'tex> {
+    pub fn new(colour : &'tex dyn Texture) -> Lambertian<'tex> {
+        Lambertian { albedo : colour }
     }
 }
 
-impl Material for Lambertian {
+impl<'tex> Material for Lambertian<'tex> {
     fn scatter(&self, rng: &mut ThreadRng, ray_in: &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)>
     {
         let mut scatter_direction = hit_record.normal + random_unit(rng);
         if scatter_direction.near_zero() {
             scatter_direction = hit_record.normal;
         }
-        Some( (self.albedo, Ray::new(&hit_record.point, &scatter_direction, ray_in.time)) )
+        Some( (self.albedo.value(hit_record.u, hit_record.v, &hit_record.point), Ray::new(&hit_record.point, &scatter_direction, ray_in.time)) )
     }
 }
 
 
-pub struct Metal {
-    albedo : Colour,
+pub struct Metal<'tex> {
+    albedo : &'tex dyn Texture,
     fuzz : f64
 }
 
-impl Metal {
-    pub fn new(colour : &Colour, fuzz : f64) -> Metal {
+impl<'tex> Metal<'tex> {
+    pub fn new(colour : &'tex dyn Texture, fuzz : f64) -> Metal<'tex> {
         if fuzz < 1.0 {
-            Metal { albedo: *colour, fuzz }
+            Metal { albedo: colour, fuzz }
         } else {
-            Metal { albedo: *colour, fuzz : 1.0 }
+            Metal { albedo: colour, fuzz : 1.0 }
         }
     }
 }
 
-impl Material for Metal {
+impl<'tex> Material for Metal<'tex> {
     fn scatter(&self, rng: &mut ThreadRng, ray_in: &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)>
     {
         let scatter_direction = reflect(&ray_in.direction, &hit_record.normal);
         let fuzzed_scatter_direction = scatter_direction.unit() + self.fuzz * random_unit(rng);
-        Some( (self.albedo, Ray::new(&hit_record.point, &fuzzed_scatter_direction, ray_in.time)) )
+        let colour = self.albedo.value(hit_record.u,hit_record.v, &hit_record.point);
+        Some( (colour, Ray::new(&hit_record.point, &fuzzed_scatter_direction, ray_in.time)) )
     }
 }
 

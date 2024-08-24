@@ -10,6 +10,7 @@ mod interval;
 mod camera;
 mod materials;
 mod aabb;
+mod textures;
 
 use std::fs::File;
 use rand::rngs::ThreadRng;
@@ -18,16 +19,17 @@ use crate::camera::Camera;
 use crate::colour::{random_colour_light, random_colour_sq, Colour};
 use crate::hittables::{HittableList, Sphere, BVH};
 use crate::materials::{Dielectric, Lambertian, Material, Metal};
+use crate::textures::{SolidColour, TextureWorld};
 use crate::vec3::{Point3, Vec3};
 
 
-fn random_material(rng : &mut ThreadRng) -> Box<dyn Material> {
+fn random_material<'tex>(rng : &mut ThreadRng, textures : &'tex TextureWorld<'tex>) -> Box<dyn Material + 'tex> {
     let choice = rng.gen::<f64>();
     if choice < 0.8 {
-        Box::new(Lambertian::new(&random_colour_sq(rng)))
+        Box::new(Lambertian::new(textures.chose("dark", rng).unwrap()))
     } else if choice < 0.95 {
         let fuzz = rng.gen::<f64>() * 0.5;
-        Box::new(Metal::new(&random_colour_light(rng), fuzz))
+        Box::new(Metal::new(textures.chose("light", rng).unwrap(), fuzz))
     } else {
         Box::new(Dielectric::new(1.5))
     }
@@ -64,15 +66,27 @@ fn main() {
 
     let mut rng : ThreadRng = thread_rng();
 
+    // Make textures
+    let mut textures = TextureWorld::new();
+    for _ in 0..small_sphere_num_side * 4 {
+        textures.add("dark", Box::new(SolidColour::new(&random_colour_sq(&mut rng))))
+    }
+    for _ in 0..small_sphere_num_side * 4 {
+        textures.add("light", Box::new(SolidColour::new(&random_colour_light(&mut rng))))
+    }
+
     // Make materials
-    let material_ground = Lambertian::new(&Colour::new(0.5,0.5,0.5));
+    let ground_texture = SolidColour::new(&Colour::new(0.5,0.5,0.5));
+    let material_ground = Lambertian::new(&ground_texture);
     let mut small_sphere_materials : Vec<Box<dyn Material>> = Vec::new();
     for _ in 0..small_sphere_num_total {
-        small_sphere_materials.push(random_material(&mut rng));
+        small_sphere_materials.push(random_material(&mut rng, &textures));
     }
     let sphere_material1 = Dielectric::new(1.5);
-    let sphere_material2 = Lambertian::new(&Colour::new(0.4, 0.2, 0.1));
-    let sphere_material3 = Metal::new(&Colour::new(0.7, 0.6, 0.5), 0.0);
+    let texture2 = SolidColour::new(&Colour::new(0.4, 0.2, 0.1));
+    let sphere_material2 = Lambertian::new(&texture2);
+    let texture3 = SolidColour::new(&Colour::new(0.7, 0.6, 0.5));
+    let sphere_material3 = Metal::new(&texture3, 0.0);
 
     // Make world
     let mut world = HittableList::new();

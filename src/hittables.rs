@@ -10,6 +10,8 @@ pub struct HitRecord<'mat> {
     pub point : Point3,
     pub normal : UnitVec3,
     pub t : f64,
+    pub u : f64,
+    pub v : f64,
     pub front_face : bool,
     pub material : &'mat dyn Material
 }
@@ -19,12 +21,14 @@ pub trait Hittable {
 }
 
 impl<'mat> HitRecord<'mat> {
-    fn new(point : &Point3, t : f64, ray : &Ray, outward_normal : &Vec3, material : &'mat dyn Material) -> HitRecord<'mat> {
+    fn new(point : &Point3, t : f64, ray : &Ray, outward_normal : &Vec3, u : f64, v : f64, material : &'mat dyn Material) -> HitRecord<'mat> {
         if dot(&ray.direction, outward_normal) < 0.0 {
             HitRecord {
                 point : *point,
                 t,
                 normal : *outward_normal,
+                u,
+                v,
                 front_face : true,
                 material
             }
@@ -33,6 +37,8 @@ impl<'mat> HitRecord<'mat> {
                 point : *point,
                 t,
                 normal : -outward_normal,
+                u,
+                v,
                 front_face : false,
                 material
             }
@@ -84,6 +90,8 @@ impl<'mat> Hittable for Sphere<'mat> {
                 root,
                 ray,
                 &normal,
+                0.0,
+                0.0,
                 self.material
             )
         )
