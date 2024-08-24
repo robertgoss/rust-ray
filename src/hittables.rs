@@ -87,7 +87,7 @@ impl<'mat> Hittable for Sphere<'mat> {
         let normal = (point - self.center) / self.radius;
         let theta = (-normal.y()).acos();
         let phi = f64::atan2(-normal.z(), normal.x());
-        let u = phi / PI + 0.5;
+        let u = phi / (2.0 * PI) + 0.5;
         let v = theta / PI;
         Some (
             HitRecord::new(

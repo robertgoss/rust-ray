@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use image::RgbImage;
 use rand::Rng;
 use rand::seq::SliceRandom;
-use crate::colour::Colour;
+use crate::colour::{read_colour, Colour};
+use crate::interval::Interval;
 use crate::vec3::Point3;
 
 pub trait Texture {
@@ -53,6 +55,32 @@ impl<'tex> Texture for Checker<'tex> {
         }
     }
 }
+
+pub struct ImageTexture {
+    data : RgbImage
+}
+
+impl ImageTexture {
+    pub fn load(name : &str) -> Option<ImageTexture> {
+        let path = "./data/".to_string() + name;
+        let image = image::open(path).ok()?;
+        Some(ImageTexture {
+            data: image.into_rgb8()
+        })
+    }
+}
+
+impl Texture for ImageTexture {
+    fn value(&self, u: f64, v: f64, _point: &Point3) -> Colour {
+        let unit = Interval::new(0.0, 1.0);
+        let local_u = unit.clamp(u);
+        let local_v = 1.0 - unit.clamp(v);
+        let i = (local_u * (self.data.width() as f64)) as u32;
+        let j = (local_v * (self.data.height() as f64)) as u32;
+        read_colour(&self.data, i, j)
+    }
+}
+
 pub struct TextureWorld<'tex> {
     textures : HashMap<String, Vec<Box<dyn Texture + 'tex>>>
 }

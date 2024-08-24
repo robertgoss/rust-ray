@@ -21,6 +21,19 @@ fn gamma_correct(linear : f64) -> f64 {
     }
 }
 
+pub fn read_colour(
+    image : &RgbImage,
+    i : u32,
+    j : u32
+) -> Colour {
+    let b_colour = image.get_pixel(i, j);
+    let r = b_colour.0[0] as f64 / 255.0;
+    let g = b_colour.0[1] as f64 / 255.0;
+    let b = b_colour.0[2] as f64 / 255.0;
+    Colour::new(r, g, b)
+
+}
+
 pub fn write_colour(
     image : &mut RgbImage,
     i : u32,
