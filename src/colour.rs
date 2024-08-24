@@ -1,5 +1,4 @@
-use std::fs::File;
-use std::io::{Error, Write};
+use image::{Rgb, RgbImage};
 use rand::Rng;
 use crate::interval::Interval;
 use crate::vec3::Vec3;
@@ -22,10 +21,12 @@ fn gamma_correct(linear : f64) -> f64 {
     }
 }
 
-pub fn write_ppm_colour(
-    file : &mut File,
+pub fn write_colour(
+    image : &mut RgbImage,
+    i : u32,
+    j : u32,
     colour : &Colour
-) -> Result<(), Error> {
+) {
     let range = Interval {min : 0.0, max : 1.0};
     let r = gamma_correct(colour.x());
     let g = gamma_correct(colour.y());
@@ -33,13 +34,8 @@ pub fn write_ppm_colour(
     let b_red = (range.clamp(r) * 256.0) as u8;
     let b_green = (range.clamp(g) * 256.0) as u8;
     let b_blue = (range.clamp(b) * 256.0) as u8;
-    file.write(b_red.to_string().as_bytes())?;
-    file.write(" ".as_bytes())?;
-    file.write(b_green.to_string().as_bytes())?;
-    file.write(" ".as_bytes())?;
-    file.write(b_blue.to_string().as_bytes())?;
-    file.write("\n".as_bytes())?;
-    Ok(())
+    let rgb = Rgb::from([b_red, b_green, b_blue]);
+    image.put_pixel(i, j, rgb);
 }
 
 pub fn random_colour_light<R>(rng : &mut R) -> Colour

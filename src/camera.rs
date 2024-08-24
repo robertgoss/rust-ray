@@ -1,32 +1,20 @@
 use std::cmp::max;
-use std::fs::File;
-use std::io::{Error, Write};
 use std::f64::consts::PI;
 use rand::{thread_rng, Rng};
 use rand::rngs::ThreadRng;
-use crate::colour::{attenuate, write_ppm_colour, Colour};
+use image::{RgbImage};
+
+use crate::colour::{attenuate, write_colour, Colour};
 use crate::hittables::Hittable;
 use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::vec3::{cross, random_in_disc, Point3, Vec3};
 
-fn write_ppm_header(
-    file : &mut File,
-    image_width : usize,
-    image_height : usize
-) -> Result<(), Error> {
-    file.write("P3\n".as_bytes())?;
-    file.write(image_width.to_string().as_bytes())?;
-    file.write(" ".as_bytes())?;
-    file.write(image_height.to_string().as_bytes())?;
-    file.write("\n255\n".as_bytes())?;
-    Ok(())
-}
 
 pub struct Camera {
-    image_width : usize,
-    image_height : usize,
-    samples_per_pixel : usize,
+    image_width : u32,
+    image_height : u32,
+    samples_per_pixel : u32,
     center : Point3,
     pixel00_loc : Point3,
     pixel_delta_u : Vec3,
@@ -63,8 +51,8 @@ impl Camera {
         look_at : &Point3,
         look_up : &Vec3,
         aspect_ratio : f64,
-        image_width : usize,
-        samples_per_pixel : usize,
+        image_width : u32,
+        samples_per_pixel : u32,
         max_depth : u8,
         vertical_fov : f64,
         defocus_distance : f64,
@@ -72,7 +60,7 @@ impl Camera {
     ) -> Camera {
         let image_height = max(
             1,
-            ((image_width as f64) / aspect_ratio) as usize
+            ((image_width as f64) / aspect_ratio) as u32
         );
         // Setup the camera coords
         let h = (vertical_fov * PI / 360.0).tan();
@@ -110,12 +98,12 @@ impl Camera {
         }
     }
 
-    pub fn render<Hit>(&self, image_file : &mut File, world : &Hit)
+    pub fn render<Hit>(&self, image_file : &str, world : &Hit)
         where Hit : Hittable
     {
         let mut rng = thread_rng();
         let pixel_colour_scale = 1.0 / self.samples_per_pixel as f64;
-        write_ppm_header(image_file, self.image_width, self.image_height).expect("Could not write header");
+        let mut image = RgbImage::new(self.image_width, self.image_height);
         // Render
         for j in 0..self.image_height {
             print!("\rScanlines remaining: {}       \n", self.image_height - j);
@@ -126,13 +114,14 @@ impl Camera {
                     pixel_colour += ray_colour(&mut rng, world, &ray, self.max_depth);
                 }
                 pixel_colour *= pixel_colour_scale;
-                write_ppm_colour(image_file, &pixel_colour).expect("Could not write to file")
+                write_colour(&mut image, i, j, &pixel_colour);
             }
         }
+        image.save(image_file).expect("Unable to write image");
         print!("\rDONE                      ");
     }
 
-    fn ray<R>(&self, rng : &mut R, i : usize, j : usize) -> Ray
+    fn ray<R>(&self, rng : &mut R, i : u32, j : u32) -> Ray
       where R : Rng
     {
         let offset = self.offset(rng);

@@ -13,7 +13,6 @@ mod aabb;
 mod textures;
 
 use std::env::args;
-use std::fs::File;
 use rand::rngs::ThreadRng;
 use rand::{thread_rng, Rng};
 use crate::camera::Camera;
@@ -42,10 +41,10 @@ fn random_small_center(rng : &mut ThreadRng, i : i64, j : i64) -> Point3 {
     Point3::new(x, 0.2, z)
 }
 
-fn many_spheres_scene(image_file : &mut File) {
+fn many_spheres_scene(image_file : &str) {
     // Camera
     let aspect_ratio = 16.0 / 9.0;
-    let image_width : usize = 400;
+    let image_width : u32 = 400;
     let samples_per_pixel = 200;
     let max_depth : u8 = 50;
     let fov : f64 = 20.0;
@@ -122,10 +121,10 @@ fn many_spheres_scene(image_file : &mut File) {
     camera.render(image_file, &ordered_world)
 }
 
-fn checkered_spheres(image_file : &mut File) {
+fn checkered_spheres(image_file : &str) {
     // Camera
     let aspect_ratio = 16.0 / 9.0;
-    let image_width : usize = 400;
+    let image_width : u32 = 400;
     let samples_per_pixel = 200;
     let max_depth : u8 = 50;
     let fov : f64 = 20.0;
@@ -157,12 +156,11 @@ fn checkered_spheres(image_file : &mut File) {
 
 
 fn main() {
-    let scene = args().into_iter().nth(1).unwrap_or("checkered_spheres".to_string());
-    let filename = scene.to_string() + ".ppm";
-    let mut image_file = File::create(filename).expect("Could not open file");
+    let scene = args().into_iter().nth(1).unwrap_or("many_spheres".to_string());
+    let filename = scene.to_string() + ".png";
     match scene.as_str() {
-        "many_spheres" => many_spheres_scene(&mut image_file),
-        "checkered_spheres" => checkered_spheres(&mut image_file),
-        _ => many_spheres_scene(&mut image_file)
+        "many_spheres" => many_spheres_scene(&filename),
+        "checkered_spheres" => checkered_spheres(&filename),
+        _ => many_spheres_scene(&filename)
     }
 }
