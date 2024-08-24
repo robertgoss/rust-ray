@@ -1,10 +1,10 @@
 use rand::Rng;
 use rand::seq::SliceRandom;
-use crate::vec3::Point3;
+use crate::vec3::{dot, random_unit, Point3, Vec3};
 
 const POINT_COUNT : usize = 256;
 pub struct Perlin {
-    floats : [f64; POINT_COUNT],
+    vectors : [Vec3; POINT_COUNT],
     x_permute : [u16; POINT_COUNT],
     y_permute : [u16; POINT_COUNT],
     z_permute : [u16; POINT_COUNT]
@@ -23,19 +23,22 @@ where R : Rng {
 fn split_index(val : f64) -> (usize, usize, f64) {
     let fint = val.floor();
     let rem = val - fint;
-    let int = (fint as i64);
+    let int = fint as i64;
     ((int as usize) & (POINT_COUNT - 1), ((int+1) as usize) & (POINT_COUNT - 1), rem)
 }
 
-fn trilinear_interp(verts : &[f64; 8], x : f64, y : f64, z : f64) -> f64 {
-    x * y * z * verts[0] +
-        x * y * (1.0-z) * verts[1] +
-        x * (1.0-y) * z * verts[2] +
-        x * (1.0-y) * (1.0-z) * verts[3] +
-        (1.0-x) * y * z * verts[4] +
-        (1.0-x) * y * (1.0-z) * verts[5] +
-        (1.0-x) * (1.0-y) * z * verts[6] +
-        (1.0-x) * (1.0-y) * (1.0-z) * verts[7]
+fn perlin_interp(verts : &[Vec3; 8], x : f64, y : f64, z : f64) -> f64 {
+    let xx = x*x*(3.0-2.0*x);
+    let yy = y*y*(3.0-2.0*y);
+    let zz = z*z*(3.0-2.0*z);
+    xx * yy * zz * dot(&verts[0], &Vec3::new(x-1.0,y-1.0,z-1.0)) +
+        xx * yy * (1.0-zz) * dot(&verts[1], &Vec3::new(x-1.0,y-1.0,z)) +
+        xx * (1.0-yy) * zz * dot(&verts[2], &Vec3::new(x-1.0,y,z-1.0)) +
+        xx * (1.0-yy) * (1.0-zz) * dot(&verts[3], &Vec3::new(x-1.0,y,z)) +
+        (1.0-xx) * yy * zz * dot(&verts[4], &Vec3::new(x,y-1.0,z-1.0)) +
+        (1.0-xx) * yy * (1.0-zz) * dot(&verts[5], &Vec3::new(x,y-1.0,z)) +
+        (1.0-xx) * (1.0-yy) * zz * dot(&verts[6], &Vec3::new(x,y,z-1.0)) +
+        (1.0-xx) * (1.0-yy) * (1.0-zz) * dot(&verts[7], &Vec3::new(x,y,z))
 }
 
 
@@ -43,16 +46,16 @@ impl Perlin {
     pub fn new<R>(rng : &mut R) -> Perlin
     where R : Rng
     {
-        let mut floats : [f64; POINT_COUNT] = [0.0; POINT_COUNT];
-        floats.iter_mut().for_each(
-            |val| *val = rng.gen::<f64>()
+        let mut vectors : [Vec3; POINT_COUNT] = [Vec3::zero(); POINT_COUNT];
+        vectors.iter_mut().for_each(
+            |val| *val = random_unit(rng)
         );
         let x_permute = make_permute(rng);
         let y_permute = make_permute(rng);
         let z_permute = make_permute(rng);
 
         Perlin {
-            floats,
+            vectors,
             x_permute,
             y_permute,
             z_permute
@@ -66,21 +69,22 @@ impl Perlin {
         let u = x_rem*x_rem*(3.0-2.0*x_rem);
         let v = y_rem*y_rem*(3.0-2.0*y_rem);
         let w = z_rem*z_rem*(3.0-2.0*z_rem);
-        let vals = [
-            self.coord(x_max, y_max, z_max),
-            self.coord(x_max, y_max, z_min),
-            self.coord(x_max, y_min, z_max),
-            self.coord(x_max, y_min, z_min),
-            self.coord(x_min, y_max, z_max),
-            self.coord(x_min, y_max, z_min),
-            self.coord(x_min, y_min, z_max),
-            self.coord(x_min, y_min, z_min)
+        let vecs = [
+            self.vector(x_max, y_max, z_max),
+            self.vector(x_max, y_max, z_min),
+            self.vector(x_max, y_min, z_max),
+            self.vector(x_max, y_min, z_min),
+            self.vector(x_min, y_max, z_max),
+            self.vector(x_min, y_max, z_min),
+            self.vector(x_min, y_min, z_max),
+            self.vector(x_min, y_min, z_min)
         ];
-        trilinear_interp(&vals, u, v, w)
+        let noise = perlin_interp(&vecs, u, v, w);
+        0.5 * (noise + 1.0)
     }
 
-    fn coord(&self, i : usize, j : usize, k : usize) -> f64 {
+    fn vector(&self, i : usize, j : usize, k : usize) -> Vec3 {
         let index = self.x_permute[i] ^ self.y_permute[j] ^ self.z_permute[k];
-        self.floats[index as usize]
+        self.vectors[index as usize]
     }
 }
