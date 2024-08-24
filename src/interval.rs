@@ -1,5 +1,5 @@
 
-
+#[derive(Copy, Clone)]
 pub struct Interval {
     pub min : f64,
     pub max : f64
@@ -24,6 +24,18 @@ impl Interval {
         Interval {min, max}
     }
 
+    pub fn from_vals(a : f64, b : f64) -> Interval {
+        if a < b {
+            Interval::new(a, b)
+        } else {
+            Interval::new(b, a)
+        }
+    }
+
+    pub fn about(center : f64, radius : f64) -> Interval {
+        Interval { min : center - radius, max : center + radius }
+    }
+
     pub fn size(&self) -> f64 {
         self.max - self.min
     }
@@ -43,6 +55,53 @@ impl Interval {
             self.max
         } else {
             x
+        }
+    }
+
+    pub fn intersect(&self, other : &Interval) -> Option<Interval> {
+        let t_min = if self.min > other.min {
+            self.min
+        } else {
+            other.min
+        };
+        let t_max = if self.max < other.max {
+            self.max
+        } else {
+            other.max
+        };
+        if t_min < t_max {
+            Some(Interval::new(t_min, t_max))
+        } else {
+            None
+        }
+    }
+
+    pub fn union(&self, other : &Interval) -> Interval {
+        let t_min = if self.min < other.min {
+            self.min
+        } else {
+            other.min
+        };
+        let t_max = if self.max > other.max {
+            self.max
+        } else {
+            other.max
+        };
+        Interval::new(t_min, t_max)
+    }
+
+    pub fn translate(&self, delta : f64) -> Interval {
+        Interval {
+            min : self.min + delta,
+            max : self.max + delta
+        }
+    }
+
+    pub fn length(&self) -> f64 {
+        if self.max > self.min {
+            self.max - self.min
+        } else {
+            0.0
         }
     }
 }

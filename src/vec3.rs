@@ -2,6 +2,17 @@ use std::ops;
 use rand::Rng;
 
 #[derive(Copy, Clone)]
+pub enum Axis3 {
+    X,
+    Y,
+    Z
+}
+
+pub fn axes3() -> [Axis3; 3] {
+    [Axis3::X, Axis3::Y, Axis3::Z]
+}
+
+#[derive(Copy, Clone)]
 pub struct Vec3 {
     coords : [f64; 3]
 }
@@ -34,6 +45,14 @@ impl Vec3 {
     }
     pub fn z(&self) -> f64 {
         self.coords[2]
+    }
+
+    pub fn coord(&self, axis : Axis3) -> f64 {
+        match axis {
+            Axis3::X => self.x(),
+            Axis3::Y => self.y(),
+            Axis3::Z => self.z()
+        }
     }
 
     pub fn unit(&self) -> Vec3 {

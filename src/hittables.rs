@@ -1,7 +1,10 @@
+use crate::aabb::AABB;
 use crate::interval::Interval;
 use crate::materials::Material;
 use crate::ray::Ray;
-use crate::vec3::{dot, Point3, UnitVec3, Vec3};
+use crate::vec3::{dot, Axis3, Point3, UnitVec3, Vec3};
+
+use ordered_float::NotNan;
 
 pub struct HitRecord<'mat> {
     pub point : Point3,
@@ -12,6 +15,7 @@ pub struct HitRecord<'mat> {
 }
 pub trait Hittable {
     fn hit(&self, ray : &Ray, ray_t : &Interval) -> Option<HitRecord>;
+    fn bounding_box(&self) -> AABB;
 }
 
 impl<'mat> HitRecord<'mat> {
@@ -35,8 +39,6 @@ impl<'mat> HitRecord<'mat> {
         }
     }
 }
-
-
 
 pub struct Sphere<'mat> {
     center : Point3,
@@ -86,24 +88,30 @@ impl<'mat> Hittable for Sphere<'mat> {
             )
         )
     }
+
+    fn bounding_box(&self) -> AABB {
+        AABB::new(
+            &Interval::about(self.center.x(), self.radius),
+            &Interval::about(self.center.y(), self.radius),
+            &Interval::about(self.center.z(), self.radius)
+        )
+    }
 }
 
 
 pub struct HittableList<'a> {
-    objects : Vec<Box<dyn Hittable + 'a>>
+    objects : Vec<Box<dyn Hittable + 'a>>,
+    bounding_box : AABB
 }
 
 impl<'a> HittableList<'a> {
     pub fn new() -> HittableList<'a> {
-        HittableList { objects : Vec::new() }
-    }
-
-    pub fn clear(&mut self) {
-        self.objects.clear()
+        HittableList { objects : Vec::new(), bounding_box : AABB::empty() }
     }
 
     pub fn add(&mut self, object : Box<dyn Hittable + 'a>) {
-        self.objects.push(object)
+        self.bounding_box = self.bounding_box.union(&object.bounding_box());
+        self.objects.push(object);
     }
 }
 
@@ -119,6 +127,10 @@ impl<'a> Hittable for HittableList<'a> {
             }
         }
         best_hit
+    }
+
+    fn bounding_box(&self) -> AABB {
+        self.bounding_box.clone()
     }
 }
 
@@ -147,5 +159,92 @@ impl<'a> Hittable for MovingObject<'a> {
                 record_mut
             }
         )
+    }
+
+    fn bounding_box(&self) -> AABB {
+        let start = self.object.bounding_box();
+        let end = start.translate(&self.direction);
+        start.union(&end)
+    }
+}
+
+pub enum BVH<'a> {
+    Empty,
+    Leaf(AABB, Box<dyn Hittable + 'a>),
+    Split(AABB, Box<BVH<'a>>, Box<BVH<'a>>)
+}
+
+fn split_axis<'a>(mut items : Vec<Box<dyn Hittable + 'a>>, axis: Axis3) -> (HittableList, HittableList) {
+    items.sort_by_cached_key(|item| {
+        NotNan::new(item.bounding_box().coord(axis).min).unwrap()
+    });
+    let mut left : HittableList = HittableList::new();
+    let mut right : HittableList = HittableList::new();
+    let mid = items.len() / 2;
+    for (i, object) in items.into_iter().enumerate() {
+        if i < mid {
+            left.add(object);
+        } else {
+            right.add(object);
+        }
+    }
+    (left, right)
+}
+
+impl<'a> BVH<'a> {
+    pub fn new(mut world : HittableList<'a>) -> BVH<'a> {
+        if world.objects.is_empty() {
+            return BVH::Empty;
+        }
+        if world.objects.len() <= 1 {
+            return BVH::Leaf(world.bounding_box.clone(), world.objects.pop().unwrap());
+        }
+        let axis = world.bounding_box.longest_axis();
+        let bound = world.bounding_box().clone();
+        let (left, right) = split_axis(world.objects, axis);
+        BVH::Split(bound, Box::new(BVH::new(left)), Box::new(BVH::new(right)))
+    }
+}
+
+impl<'a> Hittable for BVH<'a> {
+    fn hit(&self, ray: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+        match self {
+            BVH::Empty => None,
+            BVH::Leaf(aabb, item) => {
+                if aabb.hit(ray, ray_t) {
+                    item.hit(ray, ray_t)
+                } else {
+                    None
+                }
+            }
+            BVH::Split(aabb, left, right) => {
+                if aabb.hit(ray, ray_t) {
+                    if let Some(hit_left) = left.hit(ray, ray_t) {
+                        let ray_tl = Interval::new(ray_t.min, hit_left.t);
+                        if let Some(hit_right) = right.hit(ray, &ray_tl) {
+                            if hit_left.t < hit_right.t {
+                                Some(hit_left)
+                            } else {
+                                Some(hit_right)
+                            }
+                        } else {
+                            Some(hit_left)
+                        }
+                    } else {
+                        right.hit(ray, ray_t)
+                    }
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn bounding_box(&self) -> AABB {
+        match self {
+            BVH::Empty => AABB::empty(),
+            BVH::Leaf(aabb, _) => aabb.clone(),
+            BVH::Split(aabb, _, _) => aabb.clone()
+        }
     }
 }
