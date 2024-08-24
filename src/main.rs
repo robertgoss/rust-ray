@@ -157,7 +157,7 @@ fn checkered_spheres(image_file : &mut File) {
 
 
 fn main() {
-    let scene = args().into_iter().nth(1).unwrap_or("many_spheres".to_string());
+    let scene = args().into_iter().nth(1).unwrap_or("checkered_spheres".to_string());
     let filename = scene.to_string() + ".ppm";
     let mut image_file = File::create(filename).expect("Could not open file");
     match scene.as_str() {

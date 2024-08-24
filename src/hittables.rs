@@ -1,3 +1,4 @@
+use std::f64::consts::PI;
 use crate::aabb::AABB;
 use crate::interval::Interval;
 use crate::materials::Material;
@@ -84,14 +85,18 @@ impl<'mat> Hittable for Sphere<'mat> {
         }
         let point = ray.at(root);
         let normal = (point - self.center) / self.radius;
+        let theta = (-normal.y()).acos();
+        let phi = f64::atan2(-normal.z(), normal.x());
+        let u = phi / PI + 0.5;
+        let v = theta / PI;
         Some (
             HitRecord::new(
                 &point,
                 root,
                 ray,
                 &normal,
-                0.0,
-                0.0,
+                u,
+                v,
                 self.material
             )
         )
