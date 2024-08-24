@@ -12,6 +12,7 @@ mod materials;
 mod aabb;
 mod textures;
 
+use std::env::args;
 use std::fs::File;
 use rand::rngs::ThreadRng;
 use rand::{thread_rng, Rng};
@@ -19,7 +20,7 @@ use crate::camera::Camera;
 use crate::colour::{random_colour_light, random_colour_sq, Colour};
 use crate::hittables::{HittableList, Sphere, BVH};
 use crate::materials::{Dielectric, Lambertian, Material, Metal};
-use crate::textures::{SolidColour, TextureWorld};
+use crate::textures::{Checker, SolidColour, TextureWorld};
 use crate::vec3::{Point3, Vec3};
 
 
@@ -41,8 +42,8 @@ fn random_small_center(rng : &mut ThreadRng, i : i64, j : i64) -> Point3 {
     Point3::new(x, 0.2, z)
 }
 
-fn main() {
-    // Get dimensions
+fn many_spheres_scene(image_file : &mut File) {
+    // Camera
     let aspect_ratio = 16.0 / 9.0;
     let image_width : usize = 400;
     let samples_per_pixel = 200;
@@ -76,7 +77,9 @@ fn main() {
     }
 
     // Make materials
-    let ground_texture = SolidColour::new(&Colour::new(0.5,0.5,0.5));
+    let ground_light = SolidColour::new(&Colour::new(0.9,0.9,0.9));
+    let ground_dark = SolidColour::new(&Colour::new(0.2,0.3,0.1));
+    let ground_texture = Checker::new(0.32, &ground_dark, &ground_light);
     let material_ground = Lambertian::new(&ground_texture);
     let mut small_sphere_materials : Vec<Box<dyn Material>> = Vec::new();
     for _ in 0..small_sphere_num_total {
@@ -116,6 +119,50 @@ fn main() {
     let ordered_world = BVH::new(world);
 
     // Output image
-    let mut image_file = File::create("image.ppm").expect("Could not open file");
-    camera.render(&mut image_file, &ordered_world)
+    camera.render(image_file, &ordered_world)
+}
+
+fn checkered_spheres(image_file : &mut File) {
+    // Camera
+    let aspect_ratio = 16.0 / 9.0;
+    let image_width : usize = 400;
+    let samples_per_pixel = 200;
+    let max_depth : u8 = 50;
+    let fov : f64 = 20.0;
+    let camera = Camera::new(
+        &Point3::new(13.0, 2.0, 3.0),
+        &Point3::new(0.0, 0.0, 0.0),
+        &Vec3::new(0.0, 1.0, 0.0),
+        aspect_ratio,
+        image_width,
+        samples_per_pixel,
+        max_depth,
+        fov,
+        10.0,
+        0.6
+    );
+    // Make checker
+    let light = SolidColour::new(&Colour::new(0.9,0.9,0.9));
+    let dark = SolidColour::new(&Colour::new(0.2,0.3,0.1));
+    let checker_texture = Checker::new(0.32, &dark, &light);
+    let checker_material = Lambertian::new(&checker_texture);
+    // Make world
+    let mut world = HittableList::new();
+    world.add(Box::new(Sphere::new(&Point3::new(0.0, -10.0, 0.0), 10.0, &checker_material)));
+    world.add(Box::new(Sphere::new(&Point3::new(0.0, 10.0, 0.0), 10.0, &checker_material)));
+
+    // Render
+    camera.render(image_file, &world);
+}
+
+
+fn main() {
+    let scene = args().into_iter().nth(1).unwrap_or("many_spheres".to_string());
+    let filename = scene.to_string() + ".ppm";
+    let mut image_file = File::create(filename).expect("Could not open file");
+    match scene.as_str() {
+        "many_spheres" => many_spheres_scene(&mut image_file),
+        "checkered_spheres" => checkered_spheres(&mut image_file),
+        _ => many_spheres_scene(&mut image_file)
+    }
 }

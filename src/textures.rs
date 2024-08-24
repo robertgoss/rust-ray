@@ -24,6 +24,35 @@ impl Texture for SolidColour {
     }
 }
 
+
+pub struct Checker<'tex> {
+    inv_scale : f64,
+    even : &'tex dyn Texture,
+    odd : &'tex dyn Texture
+}
+
+impl<'tex> Checker<'tex> {
+    pub fn new(scale : f64, even : &'tex dyn Texture, odd : &'tex dyn Texture) -> Checker<'tex> {
+        Checker {
+            inv_scale : 1.0 / scale,
+            even,
+            odd
+        }
+    }
+}
+
+impl<'tex> Texture for Checker<'tex> {
+    fn value(&self, u: f64, v: f64, point: &Point3) -> Colour {
+        let x_int = (self.inv_scale * point.x()).floor() as i64;
+        let y_int = (self.inv_scale * point.y()).floor() as i64;
+        let z_int = (self.inv_scale * point.z()).floor() as i64;
+        if (x_int + y_int + z_int) % 2 == 0 {
+            self.even.value(u, v, point)
+        } else {
+            self.odd.value(u, v, point)
+        }
+    }
+}
 pub struct TextureWorld<'tex> {
     textures : HashMap<String, Vec<Box<dyn Texture + 'tex>>>
 }
