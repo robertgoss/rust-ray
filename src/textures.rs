@@ -82,25 +82,27 @@ impl Texture for ImageTexture {
     }
 }
 
-pub struct PerlinTexture {
+
+pub struct MarbleTexture {
     scale : f64,
     noise : Perlin
 }
 
-impl PerlinTexture {
-    pub fn new<R>(rng : &mut R, scale : f64) -> PerlinTexture
+impl MarbleTexture {
+    pub fn new<R>(rng : &mut R, scale : f64) -> MarbleTexture
     where R : Rng
     {
-        PerlinTexture {
+        MarbleTexture {
             scale,
             noise : Perlin::new(rng)
         }
     }
 }
 
-impl Texture for PerlinTexture {
+impl Texture for MarbleTexture {
     fn value(&self, _u: f64, _v: f64, point: &Point3) -> Colour {
-        let val = self.noise.noise(&(point * self.scale));
+        let freq = self.scale * point.z() + 10.0 * self.noise.turbulence(point, 7);
+        let val = 0.5 * (freq.sin() + 1.0);
         Colour::new(val, val, val)
     }
 }

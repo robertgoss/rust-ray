@@ -20,7 +20,7 @@ use crate::camera::Camera;
 use crate::colour::{random_colour_light, random_colour_sq, Colour};
 use crate::hittables::{HittableList, Sphere, BVH};
 use crate::materials::{Dielectric, Lambertian, Material, Metal};
-use crate::textures::{Checker, ImageTexture, PerlinTexture, SolidColour, TextureWorld};
+use crate::textures::{Checker, ImageTexture, MarbleTexture, SolidColour, TextureWorld};
 use crate::vec3::{Point3, Vec3};
 
 
@@ -202,11 +202,11 @@ fn perlin_spheres(image_file : &str) {
         max_depth,
         fov,
         10.0,
-        0.6
+        0.05
     );
     // Make checker
     let mut rng= thread_rng();
-    let noise_texture = PerlinTexture::new(&mut rng, 4.0);
+    let noise_texture = MarbleTexture::new(&mut rng, 4.0);
     let noise_material = Lambertian::new(&noise_texture);
     // Make world
     let mut world = HittableList::new();

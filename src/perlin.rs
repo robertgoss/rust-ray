@@ -79,8 +79,19 @@ impl Perlin {
             self.vector(x_min, y_min, z_max),
             self.vector(x_min, y_min, z_min)
         ];
-        let noise = perlin_interp(&vecs, u, v, w);
-        0.5 * (noise + 1.0)
+        perlin_interp(&vecs, u, v, w)
+    }
+
+    pub fn turbulence(&self, point : &Point3, depth : usize) -> f64 {
+        let mut curr_point = *point;
+        let mut weight = 0.5;
+        let mut val = 0.0;
+        for _ in 0..depth {
+            val += weight * self.noise(&curr_point);
+            weight *= 0.5;
+            curr_point *= 2.0;
+        }
+        val.abs()
     }
 
     fn vector(&self, i : usize, j : usize, k : usize) -> Vec3 {
