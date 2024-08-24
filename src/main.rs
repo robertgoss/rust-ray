@@ -11,6 +11,7 @@ mod camera;
 mod materials;
 mod aabb;
 mod textures;
+mod perlin;
 
 use std::env::args;
 use rand::rngs::ThreadRng;
@@ -19,7 +20,7 @@ use crate::camera::Camera;
 use crate::colour::{random_colour_light, random_colour_sq, Colour};
 use crate::hittables::{HittableList, Sphere, BVH};
 use crate::materials::{Dielectric, Lambertian, Material, Metal};
-use crate::textures::{Checker, ImageTexture, SolidColour, TextureWorld};
+use crate::textures::{Checker, ImageTexture, PerlinTexture, SolidColour, TextureWorld};
 use crate::vec3::{Point3, Vec3};
 
 
@@ -184,14 +185,47 @@ fn earth(image_file : &str) {
     camera.render(image_file, &world);
 }
 
+fn perlin_spheres(image_file : &str) {
+    // Camera
+    let aspect_ratio = 16.0 / 9.0;
+    let image_width : u32 = 400;
+    let samples_per_pixel = 200;
+    let max_depth : u8 = 50;
+    let fov : f64 = 20.0;
+    let camera = Camera::new(
+        &Point3::new(13.0, 2.0, 3.0),
+        &Point3::new(0.0, 0.0, 0.0),
+        &Vec3::new(0.0, 1.0, 0.0),
+        aspect_ratio,
+        image_width,
+        samples_per_pixel,
+        max_depth,
+        fov,
+        10.0,
+        0.6
+    );
+    // Make checker
+    let mut rng= thread_rng();
+    let noise_texture = PerlinTexture::new(&mut rng, 4.0);
+    let noise_material = Lambertian::new(&noise_texture);
+    // Make world
+    let mut world = HittableList::new();
+    world.add(Box::new(Sphere::new(&Point3::new(0.0, -1000.0, 0.0), 1000.0, &noise_material)));
+    world.add(Box::new(Sphere::new(&Point3::new(0.0, 2.0, 0.0), 2.0, &noise_material)));
+
+    // Render
+    camera.render(image_file, &world);
+}
+
 
 fn main() {
-    let scene = args().into_iter().nth(1).unwrap_or("earth".to_string());
+    let scene = args().into_iter().nth(1).unwrap_or("perlin_spheres".to_string());
     let filename = "./renders/".to_string() + &scene + ".png";
     match scene.as_str() {
         "many_spheres" => many_spheres_scene(&filename),
         "checkered_spheres" => checkered_spheres(&filename),
         "earth" => earth(&filename),
+        "perlin_spheres" => perlin_spheres(&filename),
         _ => many_spheres_scene(&filename)
     }
 }

@@ -4,6 +4,7 @@ use rand::Rng;
 use rand::seq::SliceRandom;
 use crate::colour::{read_colour, Colour};
 use crate::interval::Interval;
+use crate::perlin::Perlin;
 use crate::vec3::Point3;
 
 pub trait Texture {
@@ -78,6 +79,29 @@ impl Texture for ImageTexture {
         let i = (local_u * (self.data.width() as f64)) as u32;
         let j = (local_v * (self.data.height() as f64)) as u32;
         read_colour(&self.data, i, j)
+    }
+}
+
+pub struct PerlinTexture {
+    scale : f64,
+    noise : Perlin
+}
+
+impl PerlinTexture {
+    pub fn new<R>(rng : &mut R, scale : f64) -> PerlinTexture
+    where R : Rng
+    {
+        PerlinTexture {
+            scale,
+            noise : Perlin::new(rng)
+        }
+    }
+}
+
+impl Texture for PerlinTexture {
+    fn value(&self, _u: f64, _v: f64, point: &Point3) -> Colour {
+        let val = self.noise.noise(&(point * self.scale));
+        Colour::new(val, val, val)
     }
 }
 

@@ -187,9 +187,9 @@ impl ops::Sub<Vec3> for Vec3 {
 impl ops::Mul<f64> for &Vec3 {
     type Output = Vec3;
     fn mul(self, rhs: f64) -> Self::Output {
-        Vec3::new(self.x() / rhs,
-                  self.y() / rhs,
-                  self.z() / rhs)
+        Vec3::new(self.x() * rhs,
+                  self.y() * rhs,
+                  self.z() * rhs)
     }
 }
 
