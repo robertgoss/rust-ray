@@ -4,10 +4,14 @@ use crate::colour::Colour;
 use crate::hittables::HitRecord;
 use crate::ray::Ray;
 use crate::textures::Texture;
-use crate::vec3::{dot, random_unit, reflect, refract};
+use crate::vec3::{dot, random_unit, reflect, refract, Point3};
 
 pub trait Material {
     fn scatter(&self, rng : &mut ThreadRng, ray_in : &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)>;
+
+    fn emitted(&self, _u : f64, _v : f64, _point : &Point3) -> Colour {
+        Colour::zero()
+    }
 }
 
 pub struct Lambertian<'tex> {
@@ -100,4 +104,22 @@ impl Material for Dielectric {
     }
 }
 
+pub struct DiffuseLight<'tex> {
+    light : &'tex dyn Texture
+}
 
+impl<'tex> DiffuseLight<'tex> {
+    pub fn new(light : &'tex dyn Texture) -> DiffuseLight<'tex> {
+        DiffuseLight { light }
+    }
+}
+
+impl<'tex> Material for DiffuseLight<'tex> {
+    fn scatter(&self, _rng: &mut ThreadRng, _ray_in: &Ray, _hit_record: &HitRecord) -> Option<(Colour, Ray)> {
+        None
+    }
+
+    fn emitted(&self, u: f64, v: f64, point: &Point3) -> Colour {
+        self.light.value(u, v, point)
+    }
+}

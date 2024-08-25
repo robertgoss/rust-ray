@@ -19,7 +19,7 @@ use rand::{thread_rng, Rng};
 use crate::camera::Camera;
 use crate::colour::{random_colour_light, random_colour_sq, Colour};
 use crate::hittables::{HittableList, Quadrilateral, Sphere, BVH};
-use crate::materials::{Dielectric, Lambertian, Material, Metal};
+use crate::materials::{Dielectric, DiffuseLight, Lambertian, Material, Metal};
 use crate::textures::{Checker, ImageTexture, MarbleTexture, SolidColour, TextureWorld};
 use crate::vec3::{Point3, Vec3};
 
@@ -59,7 +59,8 @@ fn many_spheres_scene(image_file : &str) {
         max_depth,
         fov,
         10.0,
-        0.6
+        0.6,
+        Colour::new(0.7, 0.8, 1.0)
     );
 
     let small_sphere_num_side = 11i64;
@@ -139,7 +140,8 @@ fn checkered_spheres(image_file : &str) {
         max_depth,
         fov,
         10.0,
-        0.6
+        0.6,
+        Colour::new(0.7, 0.8, 1.0)
     );
     // Make checker
     let light = SolidColour::new(&Colour::new(0.9,0.9,0.9));
@@ -172,7 +174,8 @@ fn earth(image_file : &str) {
         max_depth,
         fov,
         10.0,
-        0.6
+        0.6,
+        Colour::new(0.7, 0.8, 1.0)
     );
     // Make image
     let globe_texture = ImageTexture::load("earthmap.jpg").expect("Could not load texture");
@@ -202,7 +205,8 @@ fn perlin_spheres(image_file : &str) {
         max_depth,
         fov,
         10.0,
-        0.05
+        0.05,
+        Colour::new(0.7, 0.8, 1.00)
     );
     // Make checker
     let mut rng= thread_rng();
@@ -234,7 +238,8 @@ fn quads(image_file : &str) {
         max_depth,
         fov,
         10.0,
-        0.0
+        0.0,
+        Colour::new(0.7, 0.8, 1.0)
     );
     // Make materials
     let left_red_t = SolidColour::new(&Colour::new(1.0, 0.2, 0.2));
@@ -285,9 +290,52 @@ fn quads(image_file : &str) {
     camera.render(image_file, &world);
 }
 
+fn simple_light(image_file : &str) {
+    // Camera
+    let aspect_ratio = 16.0 / 9.0;
+    let image_width : u32 = 400;
+    let samples_per_pixel = 500;
+    let max_depth : u8 = 50;
+    let fov : f64 = 20.0;
+    let camera = Camera::new(
+        &Point3::new(23.0, 3.0, 6.0),
+        &Point3::new(0.0, 2.0, 0.0),
+        &Vec3::new(0.0, 1.0, 0.0),
+        aspect_ratio,
+        image_width,
+        samples_per_pixel,
+        max_depth,
+        fov,
+        10.0,
+        0.05,
+        Colour::new(0.0, 0.0, 0.0)
+    );
+    // Make checker
+    let mut rng= thread_rng();
+    let noise_texture = MarbleTexture::new(&mut rng, 4.0);
+    let noise_material = Lambertian::new(&noise_texture);
+
+    // Make light
+    let light_texture = SolidColour::new(&Colour::new(4.0, 4.0, 4.0));
+    let light_material = DiffuseLight::new(&light_texture);
+    // Make world
+    let mut world = HittableList::new();
+    world.add(Box::new(Sphere::new(&Point3::new(0.0, -1000.0, 0.0), 1000.0, &noise_material)));
+    world.add(Box::new(Sphere::new(&Point3::new(0.0, 2.0, 0.0), 2.0, &noise_material)));
+
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(3.0, 1.0, -2.0),
+        &Vec3::new(2.0, 0.0, 0.0),
+        &Vec3::new(0.0, 2.0, 0.0),
+        &light_material
+    )));
+    world.add(Box::new(Sphere::new(&Point3::new(0.0, 7.0, 0.0), 2.0, &light_material)));
+    // Render
+    camera.render(image_file, &world);
+}
 
 fn main() {
-    let scene = args().into_iter().nth(1).unwrap_or("quads".to_string());
+    let scene = args().into_iter().nth(1).unwrap_or("simple_light".to_string());
     let filename = "./renders/".to_string() + &scene + ".png";
     match scene.as_str() {
         "many_spheres" => many_spheres_scene(&filename),
@@ -295,6 +343,7 @@ fn main() {
         "earth" => earth(&filename),
         "perlin_spheres" => perlin_spheres(&filename),
         "quads" => quads(&filename),
+        "simple_light" => simple_light(&filename),
         _ => println!("Please enter valid scene name")
     }
 }

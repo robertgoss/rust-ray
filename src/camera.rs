@@ -21,27 +21,8 @@ pub struct Camera {
     pixel_delta_v : Vec3,
     defocus_u : Vec3,
     defocus_v : Vec3,
-    max_depth : u8
-}
-
-fn ray_colour<Hit>(rng : &mut ThreadRng, world : &Hit, ray : &Ray, max_depth : u8) -> Colour
-where Hit : Hittable
-{
-    if max_depth == 0 {
-        return Colour::new(0.0, 0.0, 0.0);
-    }
-    let initial_t = Interval {min: 0.001, max : f64::MAX};
-    if let Some(hit) = world.hit(ray, &initial_t) {
-        return if let  Some((attenuation, scattered_ray)) = hit.material.scatter(rng, ray, &hit) {
-            let scattered = ray_colour(rng, world, &scattered_ray, max_depth-1);
-            attenuate(&attenuation, &scattered)
-        } else {
-            Colour::zero()
-        }
-    }
-    let unit_direction = ray.direction.unit();
-    let a = 0.5*(unit_direction.y() + 1.0);
-    (1.0-a)*Colour::new(1.0, 1.0, 1.0) + a*Colour::new(0.5, 0.7, 1.0)
+    max_depth : u8,
+    background : Colour
 }
 
 impl Camera {
@@ -56,7 +37,8 @@ impl Camera {
         max_depth : u8,
         vertical_fov : f64,
         defocus_distance : f64,
-        defocus_angle : f64
+        defocus_angle : f64,
+        background : Colour
     ) -> Camera {
         let image_height = max(
             1,
@@ -94,7 +76,8 @@ impl Camera {
             pixel_delta_v,
             defocus_u,
             defocus_v,
-            max_depth
+            max_depth,
+            background
         }
     }
 
@@ -111,7 +94,7 @@ impl Camera {
                 let mut pixel_colour = Colour::zero();
                 for _ in 0..self.samples_per_pixel {
                     let ray = self.ray(&mut rng, i, j);
-                    pixel_colour += ray_colour(&mut rng, world, &ray, self.max_depth);
+                    pixel_colour += self.ray_colour(&mut rng, world, &ray, self.max_depth);
                 }
                 pixel_colour *= pixel_colour_scale;
                 write_colour(&mut image, i, j, &pixel_colour);
@@ -147,5 +130,25 @@ impl Camera {
         let x = rng.gen::<f64>() - 0.5;
         let y = rng.gen::<f64>() - 0.5;
         Vec3::new(x, y, 0.0)
+    }
+
+    fn ray_colour<Hit>(&self, rng : &mut ThreadRng, world : &Hit, ray : &Ray, max_depth : u8) -> Colour
+    where Hit : Hittable
+    {
+        if max_depth == 0 {
+            return Colour::new(0.0, 0.0, 0.0);
+        }
+        let initial_t = Interval { min: 0.001, max: f64::MAX };
+        if let Some(hit) = world.hit(ray, &initial_t) {
+            let emission = hit.material.emitted(hit.u, hit.v, &hit.point);
+            if let Some((attenuation, scattered_ray)) = hit.material.scatter(rng, ray, &hit) {
+                let scattered = self.ray_colour(rng, world, &scattered_ray, max_depth - 1);
+                emission + attenuate(&attenuation, &scattered)
+            } else {
+                emission
+            }
+        } else {
+            self.background
+        }
     }
 }
