@@ -18,7 +18,7 @@ use rand::rngs::ThreadRng;
 use rand::{thread_rng, Rng};
 use crate::camera::Camera;
 use crate::colour::{random_colour_light, random_colour_sq, Colour};
-use crate::hittables::{HittableList, Sphere, BVH};
+use crate::hittables::{HittableList, Quadrilateral, Sphere, BVH};
 use crate::materials::{Dielectric, Lambertian, Material, Metal};
 use crate::textures::{Checker, ImageTexture, MarbleTexture, SolidColour, TextureWorld};
 use crate::vec3::{Point3, Vec3};
@@ -217,15 +217,84 @@ fn perlin_spheres(image_file : &str) {
     camera.render(image_file, &world);
 }
 
+fn quads(image_file : &str) {
+    // Camera
+    let aspect_ratio = 1.0;
+    let image_width : u32 = 400;
+    let samples_per_pixel = 200;
+    let max_depth : u8 = 50;
+    let fov : f64 = 80.0;
+    let camera = Camera::new(
+        &Point3::new(0.0, 0.0, 9.0),
+        &Point3::new(0.0, 0.0, 0.0),
+        &Vec3::new(0.0, 1.0, 0.0),
+        aspect_ratio,
+        image_width,
+        samples_per_pixel,
+        max_depth,
+        fov,
+        10.0,
+        0.0
+    );
+    // Make materials
+    let left_red_t = SolidColour::new(&Colour::new(1.0, 0.2, 0.2));
+    let back_green_t = SolidColour::new(&Colour::new(0.2, 1.0, 0.2));
+    let right_blue_t = SolidColour::new(&Colour::new(0.2, 0.2, 0.1));
+    let upper_orange_t = SolidColour::new(&Colour::new(1.0, 0.5, 0.0));
+    let lower_teal_t = SolidColour::new(&Colour::new(0.2, 0.8, 0.8));
+
+    let left_red_m = Lambertian::new(&left_red_t);
+    let back_green_m = Lambertian::new(&back_green_t);
+    let right_blue_m= Lambertian::new(&right_blue_t);
+    let upper_orange_m = Lambertian::new(&upper_orange_t);
+    let lower_teal_m = Lambertian::new(&lower_teal_t);
+    // Make world
+    let mut world = HittableList::new();
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(-3.0, -2.0, 5.0),
+        &Vec3::new(0.0, 0.0, -4.0),
+        &Vec3::new(0.0, 4.0, 0.0),
+        &left_red_m
+    )));
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(-2.0, -2.0, 0.0),
+        &Vec3::new(4.0, 0.0, 0.0),
+        &Vec3::new(0.0, 4.0, 0.0),
+        &back_green_m
+    )));
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(3.0, -2.0, 1.0),
+        &Vec3::new(0.0, 0.0, 4.0),
+        &Vec3::new(0.0, 4.0, 0.0),
+        &right_blue_m
+    )));
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(-2.0, 3.0, 1.0),
+        &Vec3::new(4.0, 0.0, 0.0),
+        &Vec3::new(0.0, 0.0, 4.0),
+        &upper_orange_m
+    )));
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(-2.0, -3.0, 5.0),
+        &Vec3::new(4.0, 0.0, 0.0),
+        &Vec3::new(0.0, 0.0, -4.0),
+        &lower_teal_m
+    )));
+
+    // Render
+    camera.render(image_file, &world);
+}
+
 
 fn main() {
-    let scene = args().into_iter().nth(1).unwrap_or("perlin_spheres".to_string());
+    let scene = args().into_iter().nth(1).unwrap_or("quads".to_string());
     let filename = "./renders/".to_string() + &scene + ".png";
     match scene.as_str() {
         "many_spheres" => many_spheres_scene(&filename),
         "checkered_spheres" => checkered_spheres(&filename),
         "earth" => earth(&filename),
         "perlin_spheres" => perlin_spheres(&filename),
-        _ => many_spheres_scene(&filename)
+        "quads" => quads(&filename),
+        _ => println!("Please enter valid scene name")
     }
 }

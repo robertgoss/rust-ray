@@ -20,6 +20,13 @@ impl Interval {
         }
     }
 
+    pub fn unit() -> Interval {
+        Interval {
+            min : 0.0,
+            max : 1.0
+        }
+    }
+
     pub fn new(min : f64, max : f64) -> Interval {
         Interval {min, max}
     }
@@ -102,6 +109,14 @@ impl Interval {
             self.max - self.min
         } else {
             0.0
+        }
+    }
+
+    pub fn pad(&mut self, min : f64) {
+        if self.length() < min {
+            let mid = (self.max + self.min) * 0.5;
+            self.min = mid - (0.5 * min);
+            self.max = mid + (0.5 * min);
         }
     }
 }

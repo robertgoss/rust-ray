@@ -3,7 +3,7 @@ use crate::aabb::AABB;
 use crate::interval::Interval;
 use crate::materials::Material;
 use crate::ray::Ray;
-use crate::vec3::{dot, Axis3, Point3, UnitVec3, Vec3};
+use crate::vec3::{cross, dot, Axis3, Point3, UnitVec3, Vec3};
 
 use ordered_float::NotNan;
 
@@ -108,6 +108,76 @@ impl<'mat> Hittable for Sphere<'mat> {
             &Interval::about(self.center.y(), self.radius),
             &Interval::about(self.center.z(), self.radius)
         )
+    }
+}
+
+pub struct Quadrilateral<'mat> {
+    corner : Point3,
+    u : Vec3,
+    v : Vec3,
+    w : Vec3,
+    normal : UnitVec3,
+    level : f64,
+    material : &'mat (dyn Material + 'mat),
+    bounding_box : AABB
+}
+
+impl<'mat> Quadrilateral<'mat> {
+    pub fn new(corner : &Point3, u : &Vec3, v : &Vec3, material : &'mat (dyn Material + 'mat)) -> Quadrilateral<'mat> {
+        let bound1 = AABB::from_points(&corner, &(corner+u));
+        let bound2 = AABB::from_points(&(corner+v), &(corner+u+v));
+        let mut bound = bound1.union(&bound2);
+        let c = cross(u, v);
+        let l = c.length_squared();
+        let w = c / l;
+        let normal = c / l.sqrt();
+        let level = dot(&normal, corner);
+        bound.pad(0.0001);
+        Quadrilateral {
+            corner : *corner,
+            u : *u,
+            v : *v,
+            w,
+            normal,
+            level,
+            material,
+            bounding_box : bound
+        }
+    }
+}
+
+impl<'mat> Hittable for Quadrilateral<'mat> {
+    fn hit(&self, ray: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+        let denom = dot(&self.normal, &ray.direction);
+        if denom.abs() < 1e-8 {
+            return None; // Par
+        }
+        let t = (self.level - dot(&self.normal, &ray.origin)) / denom;
+        if !ray_t.contains(t) {
+            return None;
+        }
+        let intersection = ray.at(t);
+        let hit_vec = intersection - self.corner;
+        let u = dot(&self.w, &cross(&hit_vec, &self.v));
+        let v = dot(&self.w, &cross(&self.u, &hit_vec));
+        let unit = Interval::unit();
+        if !unit.contains(u) || !unit.contains(v) {
+            return None;
+        }
+        // Return result
+        Some(HitRecord::new(
+            &intersection,
+            t,
+            ray,
+            &self.normal,
+            u,
+            v,
+            self.material
+        ))
+    }
+
+    fn bounding_box(&self) -> AABB {
+        self.bounding_box.clone()
     }
 }
 

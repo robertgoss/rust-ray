@@ -106,4 +106,10 @@ impl AABB {
             }
         }
     }
+
+    pub fn pad(&mut self, min : f64) {
+        self.intervals[0].pad(min);
+        self.intervals[1].pad(min);
+        self.intervals[2].pad(min);
+    }
 }
