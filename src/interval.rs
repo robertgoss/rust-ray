@@ -83,6 +83,15 @@ impl Interval {
         }
     }
 
+    pub fn expand(&mut self, val : f64) {
+        if self.min > val {
+            self.min = val;
+        }
+        if self.max < val {
+            self.max = val;
+        }
+    }
+
     pub fn union(&self, other : &Interval) -> Interval {
         let t_min = if self.min < other.min {
             self.min

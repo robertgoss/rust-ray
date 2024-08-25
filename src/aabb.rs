@@ -77,6 +77,12 @@ impl AABB {
         }
     }
 
+    pub fn expand(&mut self, point : &Point3) {
+        self.intervals[0].expand(point.x());
+        self.intervals[1].expand(point.y());
+        self.intervals[2].expand(point.z());
+    }
+
     pub fn union(&self, other : &AABB) -> AABB {
         AABB {
             intervals : [
@@ -111,5 +117,33 @@ impl AABB {
         self.intervals[0].pad(min);
         self.intervals[1].pad(min);
         self.intervals[2].pad(min);
+    }
+
+    pub fn min_point(&self) -> Point3 {
+        Point3::new(
+            self.x().min,
+            self.y().min,
+            self.z().min
+        )
+    }
+
+    pub fn max_point(&self) -> Point3 {
+        Point3::new(
+            self.x().max,
+            self.y().max,
+            self.z().max
+        )
+    }
+
+    pub fn points(&self) -> [Point3; 8] {
+        [Point3::new(self.x().min, self.y().min, self.z().min),
+            Point3::new(self.x().min, self.y().min, self.z().max),
+            Point3::new(self.x().min, self.y().max, self.z().min),
+            Point3::new(self.x().min, self.y().max, self.z().max),
+            Point3::new(self.x().max, self.y().min, self.z().min),
+            Point3::new(self.x().max, self.y().min, self.z().max),
+            Point3::new(self.x().max, self.y().max, self.z().min),
+            Point3::new(self.x().max, self.y().max, self.z().max)
+        ]
     }
 }

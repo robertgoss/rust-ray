@@ -217,6 +217,39 @@ impl<'a> Hittable for HittableList<'a> {
     }
 }
 
+pub fn make_box<'a>(a : &Point3, b : &Point3, mat : &'a dyn Material) -> HittableList<'a> {
+    let mut cube = HittableList::new();
+
+    let aabb = AABB::from_points(a, b);
+    let min_p = aabb.min_point();
+    let max_p = aabb.max_point();
+
+    let dx = Vec3::new(aabb.length(Axis3::X), 0.0, 0.0);
+    let dy = Vec3::new(0.0, aabb.length(Axis3::Y),0.0);
+    let dz = Vec3::new(0.0, 0.0, aabb.length(Axis3::Z));
+
+    cube.add(Box::new(
+        Quadrilateral::new(&min_p, &dx, &dy, mat)
+    ));
+    cube.add(Box::new(
+        Quadrilateral::new(&min_p, &dx, &dz, mat)
+    ));
+    cube.add(Box::new(
+        Quadrilateral::new(&min_p, &dy, &dz, mat)
+    ));
+    cube.add(Box::new(
+        Quadrilateral::new(&max_p, &-dx, &-dy, mat)
+    ));
+    cube.add(Box::new(
+        Quadrilateral::new(&max_p, &-dx, &-dz, mat)
+    ));
+    cube.add(Box::new(
+        Quadrilateral::new(&max_p, &-dy, &-dz, mat)
+    ));
+
+    cube
+}
+
 pub struct MovingObject<'a> {
     direction : Vec3,
     object : Box<dyn Hittable + 'a>
@@ -248,6 +281,93 @@ impl<'a> Hittable for MovingObject<'a> {
         let start = self.object.bounding_box();
         let end = start.translate(&self.direction);
         start.union(&end)
+    }
+}
+
+
+
+pub struct Translated<'a> {
+    direction : Vec3,
+    object : Box<dyn Hittable + 'a>
+}
+
+impl<'a> Translated<'a> {
+    pub fn new(direction : &Vec3, object : Box<dyn Hittable + 'a>) -> Translated<'a> {
+        Translated {
+            direction : *direction,
+            object
+        }
+    }
+}
+
+impl<'a> Hittable for Translated<'a> {
+    fn hit(&self, ray: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+        let moved_ray = Ray::new(&(ray.origin - self.direction), &ray.direction, ray.time);
+        self.object.hit(&moved_ray, ray_t).map(
+            |record| {
+                let mut record_mut = record;
+                record_mut.point = record_mut.point + self.direction;
+                record_mut
+            }
+        )
+    }
+
+    fn bounding_box(&self) -> AABB {
+        self.object.bounding_box().translate(&self.direction)
+    }
+}
+
+pub struct RotateY<'a> {
+    angle_cos : f64,
+    angle_sin : f64,
+    object : Box<dyn Hittable + 'a>,
+    bounding_box : AABB
+}
+
+fn rotate_y_vec(angle_c :f64, angle_s : f64, v : &Vec3) -> Vec3 {
+    Vec3::new(
+        angle_c * v.x() + angle_s * v.z(),
+        v.y(),
+        -angle_s * v.x() + angle_c * v.z()
+    )
+}
+
+
+impl<'a> RotateY<'a> {
+    pub fn new(angle : f64, object : Box<dyn Hittable + 'a>) -> RotateY<'a> {
+        let mut aabb = AABB::empty();
+        let angle_rad = angle * PI / 180.0;
+        let angle_cos = angle_rad.cos();
+        let angle_sin = (1.0 - angle_cos * angle_cos).sqrt();
+        for point in object.bounding_box().points() {
+            aabb.expand(&rotate_y_vec(angle_cos, angle_sin, &point));
+        }
+
+        RotateY {
+            angle_cos,
+            angle_sin,
+            object,
+            bounding_box : aabb
+        }
+    }
+}
+
+impl<'a> Hittable for RotateY<'a> {
+    fn hit(&self, ray: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+        let r_origin = rotate_y_vec(self.angle_cos, -self.angle_sin, &ray.origin);
+        let r_direction = rotate_y_vec(self.angle_cos, -self.angle_sin, &ray.direction);
+        let r_ray = Ray::new(&r_origin, &r_direction, ray.time);
+        self.object.hit(&r_ray, ray_t).map(
+            |record| {
+                let mut record_mut = record;
+                record_mut.point = rotate_y_vec(self.angle_cos, self.angle_sin, &record_mut.point);
+                record_mut
+            }
+        )
+    }
+
+    fn bounding_box(&self) -> AABB {
+        self.bounding_box.clone()
     }
 }
 
