@@ -728,7 +728,7 @@ fn final_scene(image_file : &str, image_width : u32, samples_per_pixel: u32, max
 }
 
 fn main() {
-    let scene = args().into_iter().nth(1).unwrap_or("final_scene_fast".to_string());
+    let scene = args().into_iter().nth(1).unwrap_or("final_scene".to_string());
     let filename = "./renders/".to_string() + &scene + ".png";
     match scene.as_str() {
         "many_spheres" => many_spheres_scene(&filename),
@@ -741,6 +741,7 @@ fn main() {
         "cornell_box" => cornell_box(&filename),
         "cornell_smoke" => cornell_smoke(&filename),
         "final_scene_fast" => final_scene(&filename, 400, 250, 4),
+        "final_scene" => final_scene(&filename, 800, 10000, 40),
         _ => println!("Please enter valid scene name")
     }
 }
