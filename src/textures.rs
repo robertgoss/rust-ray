@@ -7,7 +7,7 @@ use crate::interval::Interval;
 use crate::perlin::Perlin;
 use crate::vec3::Point3;
 
-pub trait Texture {
+pub trait Texture : Sync {
     fn value(&self, u : f64, v : f64, point : &Point3) -> Colour;
 }
 

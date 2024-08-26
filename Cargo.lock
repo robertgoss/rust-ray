@@ -758,6 +758,7 @@ dependencies = [
  "image",
  "ordered-float",
  "rand",
+ "rayon",
 ]
 
 [[package]]

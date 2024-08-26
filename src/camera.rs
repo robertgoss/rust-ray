@@ -3,7 +3,7 @@ use std::f64::consts::PI;
 use rand::{thread_rng, Rng};
 use rand::rngs::ThreadRng;
 use image::{RgbImage};
-
+use rayon::iter::{IntoParallelRefMutIterator, IndexedParallelIterator, ParallelIterator};
 use crate::colour::{attenuate, write_colour, Colour};
 use crate::hittables::{Hittable, BVH};
 use crate::interval::Interval;
@@ -83,24 +83,36 @@ impl Camera {
 
     pub fn render(&self, image_file : &str, world : &BVH)
     {
-        let mut rng = thread_rng();
-        let pixel_colour_scale = 1.0 / self.samples_per_pixel as f64;
         let mut image = RgbImage::new(self.image_width, self.image_height);
         // Render
         for j in 0..self.image_height {
             print!("\rScanlines remaining: {}       \n", self.image_height - j);
-            for i in 0..self.image_width {
-                let mut pixel_colour = Colour::zero();
-                for _ in 0..self.samples_per_pixel {
-                    let ray = self.ray(&mut rng, i, j);
-                    pixel_colour += self.ray_colour(&mut rng, world, &ray, self.max_depth);
-                }
-                pixel_colour *= pixel_colour_scale;
-                write_colour(&mut image, i, j, &pixel_colour);
+            let row = self.row(j, world);
+            for (i, colour) in row.iter().enumerate() {
+                write_colour(&mut image, i as u32, j, colour);
             }
         }
         image.save(image_file).expect("Unable to write image");
         print!("\rDONE                      ");
+    }
+
+    fn row(&self, j : u32, world : &BVH) -> Vec<Colour> {
+        let mut row = vec![Colour::zero(); self.image_width as usize];
+        row.par_iter_mut().enumerate().for_each(
+            |(i,colour)| *colour = self.pixel(i as u32, j, world)
+        );
+        row
+    }
+
+    fn pixel(&self, i : u32, j : u32, world : &BVH) -> Colour {
+        let mut rng = thread_rng();
+        let mut pixel_colour = Colour::zero();
+        for _ in 0..self.samples_per_pixel {
+            let ray = self.ray(&mut rng, i, j);
+            pixel_colour += self.ray_colour(&mut rng, world, &ray, self.max_depth);
+        }
+        pixel_colour /= self.samples_per_pixel as f64;
+        pixel_colour
     }
 
     fn ray<R>(&self, rng : &mut R, i : u32, j : u32) -> Ray

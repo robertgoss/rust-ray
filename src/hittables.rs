@@ -19,7 +19,7 @@ pub struct HitRecord<'mat> {
     pub front_face : bool,
     pub material : &'mat dyn Material
 }
-pub trait Hittable {
+pub trait Hittable: Sync {
     fn hit(&self, ray : &Ray, ray_t : &Interval, rng : &mut ThreadRng) -> Option<HitRecord>;
     fn bounding_box(&self) -> AABB;
 }

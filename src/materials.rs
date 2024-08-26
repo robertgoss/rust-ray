@@ -6,7 +6,7 @@ use crate::ray::Ray;
 use crate::textures::Texture;
 use crate::vec3::{dot, random_unit, reflect, refract, Point3};
 
-pub trait Material {
+pub trait Material : Sync {
     fn scatter(&self, rng : &mut ThreadRng, ray_in : &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)>;
 
     fn emitted(&self, _u : f64, _v : f64, _point : &Point3) -> Colour {
