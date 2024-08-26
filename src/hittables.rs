@@ -1,11 +1,14 @@
 use std::f64::consts::PI;
 use crate::aabb::AABB;
 use crate::interval::Interval;
-use crate::materials::Material;
+use crate::materials::{Isotropic, Material};
 use crate::ray::Ray;
 use crate::vec3::{cross, dot, Axis3, Point3, UnitVec3, Vec3};
 
 use ordered_float::NotNan;
+use rand::Rng;
+use rand::rngs::ThreadRng;
+use crate::textures::Texture;
 
 pub struct HitRecord<'mat> {
     pub point : Point3,
@@ -17,7 +20,7 @@ pub struct HitRecord<'mat> {
     pub material : &'mat dyn Material
 }
 pub trait Hittable {
-    fn hit(&self, ray : &Ray, ray_t : &Interval) -> Option<HitRecord>;
+    fn hit(&self, ray : &Ray, ray_t : &Interval, rng : &mut ThreadRng) -> Option<HitRecord>;
     fn bounding_box(&self) -> AABB;
 }
 
@@ -64,7 +67,7 @@ impl<'mat> Sphere<'mat> {
 }
 
 impl<'mat> Hittable for Sphere<'mat> {
-    fn hit(&self, ray: &Ray, ray_t : &Interval) -> Option<HitRecord<'mat>> {
+    fn hit(&self, ray: &Ray, ray_t : &Interval, _rng : &mut ThreadRng) -> Option<HitRecord<'mat>> {
         let oc = self.center - ray.origin;
         // Quad formula
         let a = ray.direction.length_squared();
@@ -147,7 +150,7 @@ impl<'mat> Quadrilateral<'mat> {
 }
 
 impl<'mat> Hittable for Quadrilateral<'mat> {
-    fn hit(&self, ray: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, ray_t: &Interval, _rng : &mut ThreadRng) -> Option<HitRecord> {
         let denom = dot(&self.normal, &ray.direction);
         if denom.abs() < 1e-8 {
             return None; // Par
@@ -199,12 +202,12 @@ impl<'a> HittableList<'a> {
 }
 
 impl<'a> Hittable for HittableList<'a> {
-    fn hit(&self, ray: &Ray, ray_t : &Interval) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, ray_t : &Interval, rng : &mut ThreadRng) -> Option<HitRecord> {
         let mut best_hit : Option<HitRecord> = None;
         let mut current_best = ray_t.max;
         for object in self.objects.iter() {
             let current_ray_t = Interval { min: ray_t.min, max : current_best };
-            if let Some(hit) = object.hit(ray, &current_ray_t) {
+            if let Some(hit) = object.hit(ray, &current_ray_t, rng) {
                 current_best = hit.t;
                 best_hit = Some(hit);
             }
@@ -250,6 +253,60 @@ pub fn make_box<'a>(a : &Point3, b : &Point3, mat : &'a dyn Material) -> Hittabl
     cube
 }
 
+pub struct ConstantVolume<'a, 'tex> {
+    neg_inv_density : f64,
+    boundary : Box<dyn Hittable + 'a>,
+    material : Isotropic<'tex>
+}
+
+impl<'a, 'tex> ConstantVolume<'a, 'tex> {
+    pub fn new(density: f64, boundary: Box<dyn Hittable + 'a>, texture: &'tex dyn Texture) -> ConstantVolume<'a, 'tex> {
+        ConstantVolume {
+            neg_inv_density : -1.0 / density,
+            boundary,
+            material : Isotropic::new(texture)
+        }
+    }
+}
+
+impl<'a, 'tex> Hittable for ConstantVolume<'a, 'tex> {
+    fn hit(&self, ray: &Ray, ray_t: &Interval, rng : &mut ThreadRng) -> Option<HitRecord> {
+        if let Some(hit1) = self.boundary.hit(ray, &Interval::universe(), rng) {
+            if let Some(hit2) = self.boundary.hit(ray, &Interval::new(hit1.t + 0.001, f64::MAX), rng) {
+                let hit_t = Interval::new(hit1.t, hit2.t);
+                if let Some(mut vol_t) = ray_t.intersect(&hit_t) {
+                    if vol_t.min < 0.0 {
+                        vol_t.min = 0.0
+                    }
+                    let ray_length = ray.direction.length();
+                    let dist_in_vol = ray_length * vol_t.length();
+                    let hit_distance = self.neg_inv_density * rng.gen::<f64>().ln();
+                    if hit_distance > dist_in_vol {
+                        return None;
+                    }
+                    let t = vol_t.min + (hit_distance / ray_length);
+                    return Some(
+                        HitRecord::new(
+                            &ray.at(t),
+                            t,
+                            ray,
+                            &Vec3::new(1.0,0.0,0.0),
+                            0.0,
+                            0.0,
+                            &self.material
+                        )
+                    )
+                }
+            }
+        }
+        None
+    }
+
+    fn bounding_box(&self) -> AABB {
+        self.boundary.bounding_box()
+    }
+}
+
 pub struct MovingObject<'a> {
     direction : Vec3,
     object : Box<dyn Hittable + 'a>
@@ -265,10 +322,10 @@ impl<'a> MovingObject<'a> {
 }
 
 impl<'a> Hittable for MovingObject<'a> {
-    fn hit(&self, ray: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, ray_t: &Interval, rng : &mut ThreadRng) -> Option<HitRecord> {
         let shift = self.direction*ray.time;
         let moved_ray = Ray::new(&(ray.origin - shift), &ray.direction, 0.0);
-        self.object.hit(&moved_ray, ray_t).map(
+        self.object.hit(&moved_ray, ray_t, rng).map(
             |record| {
                 let mut record_mut = record;
                 record_mut.point = record_mut.point + shift;
@@ -301,9 +358,9 @@ impl<'a> Translated<'a> {
 }
 
 impl<'a> Hittable for Translated<'a> {
-    fn hit(&self, ray: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, ray_t: &Interval, rng : &mut ThreadRng) -> Option<HitRecord> {
         let moved_ray = Ray::new(&(ray.origin - self.direction), &ray.direction, ray.time);
-        self.object.hit(&moved_ray, ray_t).map(
+        self.object.hit(&moved_ray, ray_t, rng).map(
             |record| {
                 let mut record_mut = record;
                 record_mut.point = record_mut.point + self.direction;
@@ -353,11 +410,11 @@ impl<'a> RotateY<'a> {
 }
 
 impl<'a> Hittable for RotateY<'a> {
-    fn hit(&self, ray: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, ray_t: &Interval, rng : &mut ThreadRng) -> Option<HitRecord> {
         let r_origin = rotate_y_vec(self.angle_cos, -self.angle_sin, &ray.origin);
         let r_direction = rotate_y_vec(self.angle_cos, -self.angle_sin, &ray.direction);
         let r_ray = Ray::new(&r_origin, &r_direction, ray.time);
-        self.object.hit(&r_ray, ray_t).map(
+        self.object.hit(&r_ray, ray_t, rng).map(
             |record| {
                 let mut record_mut = record;
                 record_mut.point = rotate_y_vec(self.angle_cos, self.angle_sin, &record_mut.point);
@@ -410,21 +467,21 @@ impl<'a> BVH<'a> {
 }
 
 impl<'a> Hittable for BVH<'a> {
-    fn hit(&self, ray: &Ray, ray_t: &Interval) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, ray_t: &Interval, rng : &mut ThreadRng) -> Option<HitRecord> {
         match self {
             BVH::Empty => None,
             BVH::Leaf(aabb, item) => {
                 if aabb.hit(ray, ray_t) {
-                    item.hit(ray, ray_t)
+                    item.hit(ray, ray_t, rng)
                 } else {
                     None
                 }
             }
             BVH::Split(aabb, left, right) => {
                 if aabb.hit(ray, ray_t) {
-                    if let Some(hit_left) = left.hit(ray, ray_t) {
+                    if let Some(hit_left) = left.hit(ray, ray_t, rng) {
                         let ray_tl = Interval::new(ray_t.min, hit_left.t);
-                        if let Some(hit_right) = right.hit(ray, &ray_tl) {
+                        if let Some(hit_right) = right.hit(ray, &ray_tl, rng) {
                             if hit_left.t < hit_right.t {
                                 Some(hit_left)
                             } else {
@@ -434,7 +491,7 @@ impl<'a> Hittable for BVH<'a> {
                             Some(hit_left)
                         }
                     } else {
-                        right.hit(ray, ray_t)
+                        right.hit(ray, ray_t, rng)
                     }
                 } else {
                     None

@@ -139,7 +139,7 @@ impl Camera {
             return Colour::new(0.0, 0.0, 0.0);
         }
         let initial_t = Interval { min: 0.001, max: f64::MAX };
-        if let Some(hit) = world.hit(ray, &initial_t) {
+        if let Some(hit) = world.hit(ray, &initial_t, rng) {
             let emission = hit.material.emitted(hit.u, hit.v, &hit.point);
             if let Some((attenuation, scattered_ray)) = hit.material.scatter(rng, ray, &hit) {
                 let scattered = self.ray_colour(rng, world, &scattered_ray, max_depth - 1);

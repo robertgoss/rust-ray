@@ -18,7 +18,7 @@ use rand::rngs::ThreadRng;
 use rand::{thread_rng, Rng};
 use crate::camera::Camera;
 use crate::colour::{random_colour_light, random_colour_sq, Colour};
-use crate::hittables::{make_box, HittableList, MovingObject, Quadrilateral, RotateY, Sphere, Translated, BVH};
+use crate::hittables::{make_box, ConstantVolume, HittableList, MovingObject, Quadrilateral, RotateY, Sphere, Translated, BVH};
 use crate::materials::{Dielectric, DiffuseLight, Lambertian, Material, Metal};
 use crate::textures::{Checker, ImageTexture, MarbleTexture, SolidColour, TextureWorld};
 use crate::vec3::{Point3, Vec3};
@@ -509,8 +509,102 @@ fn cornell_box(image_file : &str) {
     camera.render(image_file, &world);
 }
 
+fn cornell_smoke(image_file : &str) {
+    // Camera
+    let aspect_ratio = 1.0;
+    let image_width : u32 = 600;
+    let samples_per_pixel = 500;
+    let max_depth : u8 = 50;
+    let fov : f64 = 40.0;
+    let camera = Camera::new(
+        &Point3::new(278.0, 278.0, -800.0),
+        &Point3::new(278.0, 278.0, 0.0),
+        &Vec3::new(0.0, 1.0, 0.0),
+        aspect_ratio,
+        image_width,
+        samples_per_pixel,
+        max_depth,
+        fov,
+        10.0,
+        0.00,
+        Colour::new(0.0, 0.0, 0.0)
+    );
+    // Make materials
+    let red = SolidColour::new(&Colour::new(0.65, 0.05, 0.05));
+    let white = SolidColour::new(&Colour::new(0.73, 0.73, 0.73));
+    let pure_white = SolidColour::new(&Colour::new(1.0, 1.0, 1.0));
+    let black = SolidColour::new(&Colour::new(0.0, 0.0, 0.0));
+    let green = SolidColour::new(&Colour::new(0.12, 0.45, 0.15));
+    let light = SolidColour::new(&Colour::new(15.0, 15.0, 15.0));
+
+    let red_material = Lambertian::new(&red);
+    let white_material = Lambertian::new(&white);
+    let green_material = Lambertian::new(&green);
+    let light_material = DiffuseLight::new(&light);
+    // Make world
+    let mut world = HittableList::new();
+    // Walls
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(555.0, 0.0, 0.0),
+        &Vec3::new(0.0, 555.0, 0.0),
+        &Vec3::new(0.0, 0.0, 555.0),
+        &green_material
+    )));
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(0.0, 0.0, 0.0),
+        &Vec3::new(0.0, 555.0, 0.0),
+        &Vec3::new(0.0, 0.0, 555.0),
+        &red_material
+    )));
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(0.0, 0.0, 0.0),
+        &Vec3::new(555.0, 0.0, 0.0),
+        &Vec3::new(0.0, 0.0, 555.0),
+        &white_material
+    )));
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(555.0, 555.0, 555.0),
+        &Vec3::new(-555.0, 0.0, 0.0),
+        &Vec3::new(0.0, 0.0, -555.0),
+        &white_material
+    )));
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(0.0, 0.0, 555.0),
+        &Vec3::new(555.0, 0.0, 0.0),
+        &Vec3::new(0.0, 555.0, 0.0),
+        &white_material
+    )));
+    // Light
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(343.0, 554.0, 332.0),
+        &Vec3::new(-130.0, 0.0, 0.0),
+        &Vec3::new(0.0, 0.0, -105.0),
+        &light_material
+    )));
+    // Boxes
+    let box1 = Box::new(make_box(
+        &Point3::zero(), &Point3::new(165.0,330.0,165.0), &white_material
+    ));
+    let moved_box1 = Box::new(Translated::new(
+        &Vec3::new(265.0,0.0,295.0),
+        Box::new(RotateY::new(15.0, box1))
+    ));
+    let box2 = Box::new(make_box(
+        &Point3::zero(), &Point3::new(165.0,165.0,165.0), &white_material
+    ));
+    let moved_box2 = Box::new(Translated::new(
+        &Vec3::new(130.0,0.0,65.0),
+        Box::new(RotateY::new(-18.0, box2))
+    ));
+    // Smoke
+    world.add(Box::new(ConstantVolume::new(0.01, moved_box1, &pure_white)));
+    world.add(Box::new(ConstantVolume::new(0.01, moved_box2, &black)));
+    // Render
+    camera.render(image_file, &world);
+}
+
 fn main() {
-    let scene = args().into_iter().nth(1).unwrap_or("cornell_box".to_string());
+    let scene = args().into_iter().nth(1).unwrap_or("cornell_smoke".to_string());
     let filename = "./renders/".to_string() + &scene + ".png";
     match scene.as_str() {
         "many_spheres" => many_spheres_scene(&filename),
@@ -521,6 +615,7 @@ fn main() {
         "quads" => quads(&filename),
         "simple_light" => simple_light(&filename),
         "cornell_box" => cornell_box(&filename),
+        "cornell_smoke" => cornell_smoke(&filename),
         _ => println!("Please enter valid scene name")
     }
 }

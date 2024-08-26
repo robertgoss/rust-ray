@@ -123,3 +123,20 @@ impl<'tex> Material for DiffuseLight<'tex> {
         self.light.value(u, v, point)
     }
 }
+
+pub struct Isotropic<'tex> {
+    colour : &'tex dyn Texture
+}
+
+impl<'tex> Isotropic<'tex> {
+    pub fn new(colour : &'tex dyn Texture) -> Isotropic<'tex> {
+        Isotropic { colour }
+    }
+}
+
+impl<'tex> Material for Isotropic<'tex> {
+    fn scatter(&self, rng: &mut ThreadRng, ray_in: &Ray, hit_record: &HitRecord) -> Option<(Colour, Ray)> {
+        let scatter_direction = random_unit(rng);
+        Some( (self.colour.value(hit_record.u, hit_record.v, &hit_record.point), Ray::new(&hit_record.point, &scatter_direction, ray_in.time)) )
+    }
+}
