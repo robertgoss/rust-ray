@@ -1,3 +1,4 @@
+use rand::Rng;
 
 #[derive(Copy, Clone)]
 pub struct Interval {
@@ -123,5 +124,10 @@ impl Interval {
             self.min = mid - (0.5 * min);
             self.max = mid + (0.5 * min);
         }
+    }
+
+    pub fn random<R>(&self, rng : &mut R) -> f64
+    where R : Rng {
+        self.min + (rng.gen::<f64>() * self.length())
     }
 }

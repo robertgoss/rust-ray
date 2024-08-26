@@ -16,6 +16,7 @@ mod perlin;
 use std::env::args;
 use rand::rngs::ThreadRng;
 use rand::{thread_rng, Rng};
+use crate::aabb::AABB;
 use crate::camera::Camera;
 use crate::colour::{random_colour_light, random_colour_sq, Colour};
 use crate::hittables::{make_box, ConstantVolume, HittableList, MovingObject, Quadrilateral, RotateY, Sphere, Translated, BVH};
@@ -240,7 +241,8 @@ fn checkered_spheres(image_file : &str) {
     world.add(Box::new(Sphere::new(&Point3::new(0.0, 10.0, 0.0), 10.0, &checker_material)));
 
     // Render
-    camera.render(image_file, &world);
+    let world_ordered = BVH::new(world);
+    camera.render(image_file, &world_ordered);
 }
 
 fn earth(image_file : &str) {
@@ -271,7 +273,8 @@ fn earth(image_file : &str) {
     world.add(Box::new(Sphere::new(&Point3::new(0.0, 0.0, 0.0), 2.0, &globe_material)));
 
     // Render
-    camera.render(image_file, &world);
+    let world_ordered = BVH::new(world);
+    camera.render(image_file, &world_ordered);
 }
 
 fn perlin_spheres(image_file : &str) {
@@ -304,7 +307,8 @@ fn perlin_spheres(image_file : &str) {
     world.add(Box::new(Sphere::new(&Point3::new(0.0, 2.0, 0.0), 2.0, &noise_material)));
 
     // Render
-    camera.render(image_file, &world);
+    let world_ordered = BVH::new(world);
+    camera.render(image_file, &world_ordered);
 }
 
 fn quads(image_file : &str) {
@@ -373,7 +377,8 @@ fn quads(image_file : &str) {
     )));
 
     // Render
-    camera.render(image_file, &world);
+    let world_ordered = BVH::new(world);
+    camera.render(image_file, &world_ordered);
 }
 
 fn simple_light(image_file : &str) {
@@ -417,7 +422,8 @@ fn simple_light(image_file : &str) {
     )));
     world.add(Box::new(Sphere::new(&Point3::new(0.0, 7.0, 0.0), 2.0, &light_material)));
     // Render
-    camera.render(image_file, &world);
+    let world_ordered = BVH::new(world);
+    camera.render(image_file, &world_ordered);
 }
 
 fn cornell_box(image_file : &str) {
@@ -506,7 +512,8 @@ fn cornell_box(image_file : &str) {
         Box::new(RotateY::new(-18.0, box2))
     )));
     // Render
-    camera.render(image_file, &world);
+    let world_ordered = BVH::new(world);
+    camera.render(image_file, &world_ordered);
 }
 
 fn cornell_smoke(image_file : &str) {
@@ -600,11 +607,128 @@ fn cornell_smoke(image_file : &str) {
     world.add(Box::new(ConstantVolume::new(0.01, moved_box1, &pure_white)));
     world.add(Box::new(ConstantVolume::new(0.01, moved_box2, &black)));
     // Render
-    camera.render(image_file, &world);
+    let world_ordered = BVH::new(world);
+    camera.render(image_file, &world_ordered);
+}
+
+fn final_scene(image_file : &str, image_width : u32, samples_per_pixel: u32, max_depth : u8) {
+    // Camera
+    let aspect_ratio = 1.0;
+    let fov: f64 = 40.0;
+    let camera = Camera::new(
+        &Point3::new(478.0, 278.0, -600.0),
+        &Point3::new(278.0, 278.0, 0.0),
+        &Vec3::new(0.0, 1.0, 0.0),
+        aspect_ratio,
+        image_width,
+        samples_per_pixel,
+        max_depth,
+        fov,
+        10.0,
+        0.00,
+        Colour::new(0.0, 0.0, 0.0)
+    );
+
+    let mut rng = thread_rng();
+
+    // Make materials
+    let white = SolidColour::new(&Colour::new(0.73, 0.73, 0.73));
+    let white_material = Lambertian::new(&white);
+    let black = SolidColour::new(&Colour::new(0.0, 0.0, 0.0));
+    let smoke_colour = SolidColour::new(&Colour::new(0.2, 0.4, 0.9));
+    let ground_colour = SolidColour::new(&Colour::new(0.48, 0.83, 0.53));
+    let ground_material = Lambertian::new(&ground_colour);
+    let light_colour = SolidColour::new(&Colour::new(7.0,7.0,7.0));
+    let light_material = DiffuseLight::new(&light_colour);
+    let sphere_colour = SolidColour::new(&Colour::new(0.7,0.3,0.1));
+    let sphere_material = Lambertian::new(&sphere_colour);
+    let globe_texture = ImageTexture::load("earthmap.jpg").expect("Could not load texture");
+    let globe_material = Lambertian::new(&globe_texture);
+    let marble_texture = MarbleTexture::new(&mut rng, 0.2);
+    let marble_material = Lambertian::new(&marble_texture);
+    let metal_colour = SolidColour::new(&Colour::new(0.8, 0.8, 0.9));
+    let metal = Metal::new(&metal_colour, 1.0);
+    let glass = Dielectric::new(1.5);
+
+    // Make world
+    let mut world = HittableList::new();
+
+    // Ground
+    let mut ground = HittableList::new();
+    let boxes_per_side = 20;
+    let tile_width = 100.0;
+    for i in 0..boxes_per_side {
+        for j in 0..boxes_per_side {
+            let x0 = -1000.0 + (i as f64)*tile_width;
+            let z0 = -1000.0 + (j as f64)*tile_width;
+            let y0 = 0.0;
+            let x1 = x0 + tile_width;
+            let y1 = 1.0 + rng.gen::<f64>() * 100.0;
+            let z1 = z0 + tile_width;
+            ground.add(Box::new(make_box(
+                &Point3::new(x0,y0,z0), &Point3::new(x1,y1,z1), &ground_material
+            )))
+        }
+    }
+    world.add(Box::new(BVH::new(ground)));
+    world.add(Box::new(Quadrilateral::new(
+        &Point3::new(123.0,554.0,147.0),
+        &Vec3::new(300.0,0.0,0.0),
+        &Vec3::new(0.0,0.0,265.0),
+        &light_material
+    )));
+    // Spheres
+    world.add(Box::new(MovingObject::new(
+        &Vec3::new(0.0, 0.0, 30.0),
+        Box::new(Sphere::new(&Point3::new(400.0, 400.0, 200.0), 50.0, &sphere_material))
+    )));
+    world.add(Box::new(
+        Sphere::new(&Point3::new(260.0, 150.0, 45.0), 50.0, &glass)
+    ));
+    world.add(Box::new(
+        Sphere::new(&Point3::new(0.0, 150.0, 145.0), 50.0, &metal)
+    ));
+    world.add(Box::new(
+        Sphere::new(&Point3::new(400.0, 200.0, 400.0), 100.0, &globe_material)
+    ));
+    world.add(Box::new(
+        Sphere::new(&Point3::new(220.0,280.0,300.0), 80.0, &marble_material)
+    ));
+    // Smoke
+    let small_boundary = Box::new(Sphere::new(
+        &Point3::new(360.0,150.0,145.0),
+        70.0,
+        &glass
+    ));
+    world.add(Box::new(ConstantVolume::new(0.2, small_boundary, &smoke_colour)));
+    let small_boundary = Box::new(Sphere::new(
+        &Point3::new(0.0,0.0,5.0),
+        5000.0,
+        &glass
+    ));
+    world.add(Box::new(ConstantVolume::new(0.001, small_boundary, &black)));
+    // Small spheres
+    let area = AABB::from_points(&Point3::zero(), &Point3::new(165.0,165.0,165.0));
+    let mut spheres = HittableList::new();
+    for _ in 0..1000 {
+        spheres.add(Box::new(Sphere::new(
+            &area.random(&mut rng), 10.0, &white_material
+        )));
+    }
+    let ordered_spheres = Box::new(BVH::new(spheres));
+    world.add(Box::new(Translated::new(
+        &Vec3::new(-100.0,270.0,395.0),
+        Box::new(RotateY::new(15.0, ordered_spheres))
+    )));
+
+
+    // Render
+    let world_ordered = BVH::new(world);
+    camera.render(image_file, &world_ordered);
 }
 
 fn main() {
-    let scene = args().into_iter().nth(1).unwrap_or("cornell_smoke".to_string());
+    let scene = args().into_iter().nth(1).unwrap_or("final_scene_fast".to_string());
     let filename = "./renders/".to_string() + &scene + ".png";
     match scene.as_str() {
         "many_spheres" => many_spheres_scene(&filename),
@@ -616,6 +740,7 @@ fn main() {
         "simple_light" => simple_light(&filename),
         "cornell_box" => cornell_box(&filename),
         "cornell_smoke" => cornell_smoke(&filename),
+        "final_scene_fast" => final_scene(&filename, 400, 250, 4),
         _ => println!("Please enter valid scene name")
     }
 }

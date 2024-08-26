@@ -1,3 +1,4 @@
+use rand::Rng;
 use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::vec3::{axes3, Axis3, Point3, Vec3};
@@ -145,5 +146,14 @@ impl AABB {
             Point3::new(self.x().max, self.y().max, self.z().min),
             Point3::new(self.x().max, self.y().max, self.z().max)
         ]
+    }
+
+    pub fn random<R>(&self, rng : &mut R) -> Point3
+    where R : Rng {
+        Point3::new(
+            self.x().random(rng),
+            self.y().random(rng),
+            self.z().random(rng)
+        )
     }
 }

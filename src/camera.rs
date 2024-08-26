@@ -5,7 +5,7 @@ use rand::rngs::ThreadRng;
 use image::{RgbImage};
 
 use crate::colour::{attenuate, write_colour, Colour};
-use crate::hittables::Hittable;
+use crate::hittables::{Hittable, BVH};
 use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::vec3::{cross, random_in_disc, Point3, Vec3};
@@ -81,8 +81,7 @@ impl Camera {
         }
     }
 
-    pub fn render<Hit>(&self, image_file : &str, world : &Hit)
-        where Hit : Hittable
+    pub fn render(&self, image_file : &str, world : &BVH)
     {
         let mut rng = thread_rng();
         let pixel_colour_scale = 1.0 / self.samples_per_pixel as f64;
