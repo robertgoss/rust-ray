@@ -104,6 +104,7 @@ impl Material for Dielectric {
     }
 }
 
+#[derive(Clone)]
 pub struct DiffuseLight<'tex> {
     light : &'tex dyn Texture
 }

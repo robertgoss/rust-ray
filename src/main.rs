@@ -43,13 +43,18 @@ fn random_small_center(rng : &mut ThreadRng, i : i64, j : i64) -> Point3 {
     Point3::new(x, 0.2, z)
 }
 
-fn many_spheres_scene(image_file : &str) {
+fn many_spheres_scene(image_file : &str, dark_mode : bool) {
     // Camera
     let aspect_ratio = 16.0 / 9.0;
-    let image_width : u32 = 400;
-    let samples_per_pixel = 200;
+    let image_width : u32 = 800;
+    let samples_per_pixel = 4000;
     let max_depth : u8 = 50;
     let fov : f64 = 20.0;
+    let background = if dark_mode {
+        Colour::new(0.05, 0.06, 0.08)
+    } else {
+        Colour::new(0.7, 0.8, 1.0)
+    };
     let camera = Camera::new(
         &Point3::new(13.0, 2.0, 3.0),
         &Point3::new(0.0, 0.0, 0.0),
@@ -61,7 +66,7 @@ fn many_spheres_scene(image_file : &str) {
         fov,
         10.0,
         0.6,
-        Colour::new(0.7, 0.8, 1.0)
+        background
     );
 
     let small_sphere_num_side = 11i64;
@@ -82,10 +87,16 @@ fn many_spheres_scene(image_file : &str) {
     let ground_light = SolidColour::new(&Colour::new(0.9,0.9,0.9));
     let ground_dark = SolidColour::new(&Colour::new(0.2,0.3,0.1));
     let ground_texture = Checker::new(0.32, &ground_dark, &ground_light);
+    let light_texture = SolidColour::new(&Colour::new(10.0,10.0,10.0));
+    let light_material = DiffuseLight::new(&light_texture);
     let material_ground = Lambertian::new(&ground_texture);
     let mut small_sphere_materials : Vec<Box<dyn Material>> = Vec::new();
     for _ in 0..small_sphere_num_total {
-        small_sphere_materials.push(random_material(&mut rng, &textures).1);
+        if dark_mode && rng.gen::<f64>() < 0.06 {
+            small_sphere_materials.push(Box::new(light_material.clone()));
+        } else {
+            small_sphere_materials.push(random_material(&mut rng, &textures).1);
+        }
     }
     let sphere_material1 = Dielectric::new(1.5);
     let texture2 = SolidColour::new(&Colour::new(0.4, 0.2, 0.1));
@@ -728,10 +739,10 @@ fn final_scene(image_file : &str, image_width : u32, samples_per_pixel: u32, max
 }
 
 fn main() {
-    let scene = args().into_iter().nth(1).unwrap_or("final_scene".to_string());
+    let scene = args().into_iter().nth(1).unwrap_or("many_spheres_dark".to_string());
     let filename = "./renders/".to_string() + &scene + ".png";
     match scene.as_str() {
-        "many_spheres" => many_spheres_scene(&filename),
+        "many_spheres" => many_spheres_scene(&filename, false),
         "bouncing_spheres" => bouncing_spheres(&filename),
         "checkered_spheres" => checkered_spheres(&filename),
         "earth" => earth(&filename),
@@ -742,6 +753,7 @@ fn main() {
         "cornell_smoke" => cornell_smoke(&filename),
         "final_scene_fast" => final_scene(&filename, 400, 250, 4),
         "final_scene" => final_scene(&filename, 800, 10000, 40),
+        "many_spheres_dark" => many_spheres_scene(&filename, true),
         _ => println!("Please enter valid scene name")
     }
 }
